@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS school;
+DROP TYPE IF EXISTS school_level;

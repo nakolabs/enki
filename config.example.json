@@ -1,0 +1,38 @@
+{
+  "http": {
+    "host": "0.0.0.0",
+    "port": "8000",
+    "read_timeout": 30,
+    "write_timeout": 30,
+    "frontend_host": "http://localhost:5173"
+  },
+  "postgres": {
+    "host": "0.0.0.0",
+    "port": "5432",
+    "username": "postgres",
+    "password": "password",
+    "ssl_mode": "disable",
+    "database": "genesis",
+    "max_open_conn": 20,
+    "max_idle_conn": 20,
+    "max_conn_lifetime": 60,
+    "max_conn_idle_time": 60
+  },
+  "jwt": {
+    "secret": "12345",
+    "duration": 60
+  },
+  "redis": {
+    "host": "0.0.0.0",
+    "port": "6379",
+    "username": "",
+    "password": "",
+    "database": 0
+  },
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "username": "example@gmail.com",
+    "password": "123"
+  }
+}

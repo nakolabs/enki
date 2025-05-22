@@ -72,7 +72,19 @@ func (s *service) GetListSchool(ctx context.Context) (response.ListSchool, error
 		return nil, err
 	}
 
-	listSchool, err := s.repository.GetListSchool(ctx, uuid.MustParse(claim["id"].(string)))
+	userIdString, ok := claim["user_id"].(string)
+	if !ok {
+		log.Error().Msg("Failed to extract user id")
+		return nil, errors.New("error extracting user id")
+	}
+
+	userID, err := uuid.Parse(userIdString)
+	if err != nil {
+		log.Err(err).Msg("Failed to extract user id")
+		return nil, err
+	}
+
+	listSchool, err := s.repository.GetListSchool(ctx, userID)
 	if err != nil {
 		log.Err(err).Msg("error getting list school")
 		return nil, err
@@ -90,4 +102,51 @@ func (s *service) GetListSchool(ctx context.Context) (response.ListSchool, error
 	}
 
 	return res, nil
+}
+
+func (s *service) SwitchSchool(ctx context.Context, schoolID uuid.UUID) (string, error) {
+	claim, err := jwt.ExtractContext(ctx)
+	if err != nil {
+		log.Err(err).Msg("Failed to extract claims")
+		return "", err
+	}
+
+	userIdString, ok := claim["user_id"].(string)
+	if !ok {
+		log.Error().Msg("Failed to extract user id")
+		return "", errors.New("error extracting user id")
+	}
+
+	userID, err := uuid.Parse(userIdString)
+	if err != nil {
+		log.Err(err).Msg("error parsing user id")
+		return "", err
+	}
+
+	email, ok := claim["email"].(string)
+	if !ok {
+		log.Error().Msg("Failed to extract email")
+		return "", errors.New("error extracting email")
+	}
+
+	userSchoolRole, err := s.repository.GetSchoolRoleByUserIDAndSchoolID(ctx, schoolID, userID)
+	if err != nil {
+		log.Err(err).Msg("error getting school role")
+		return "", err
+	}
+
+	jwtPayload := map[string]interface{}{
+		"email":     email,
+		"user_id":   userID,
+		"role_id":   userSchoolRole.RoleID,
+		"school_id": userSchoolRole.SchoolID,
+	}
+
+	token, err := jwt.GenerateToken(time.Duration(s.config.JWT.Duration)*time.Hour, jwtPayload, s.config.JWT.Secret)
+	if err != nil {
+		log.Err(err).Msg("error generating token")
+		return "", err
+	}
+
+	return token, nil
 }

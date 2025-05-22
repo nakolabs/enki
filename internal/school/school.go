@@ -38,4 +38,5 @@ func (sc *School) Init() {
 	v1.POST("", h.CreateSchool)
 	v1.GET("/:school_id", h.GetDetailSchool)
 	v1.GET("", h.ListSchool)
+	v1.GET("/switch/:school_id", h.SwitchSchool)
 }

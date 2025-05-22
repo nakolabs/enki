@@ -87,6 +87,32 @@ func (h *Handler) ListSchool(c *gin.Context) {
 		SetCode(http.StatusOK).
 		SetMessage("list school success").
 		SetData(data)
-	
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) SwitchSchool(c *gin.Context) {
+	schoolIDStr := c.Param("school_id")
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	token, err := h.service.SwitchSchool(c.Request.Context(), schoolID)
+	if err != nil {
+		response := commonHttp.NewResponse().
+			SetCode(http.StatusInternalServerError).
+			SetMessage(err.Error()).
+			SetErrors(err)
+		c.JSON(response.Code, response)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("switch school success").
+		SetData(gin.H{"access_token": token})
+
 	c.JSON(http.StatusOK, response)
 }

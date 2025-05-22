@@ -28,9 +28,16 @@ func (s *service) Login(ctx context.Context, data request.LoginRequest) (*respon
 		return nil, commonError.ErrInvalidPassword
 	}
 
+	userSchoolRole, err := s.repository.GetFirstUserSchoolRolByUserID(ctx, user.ID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		log.Err(err).Str("email", data.Email).Msg("failed to get user first user")
+	}
+
 	jwtPayload := map[string]interface{}{
-		"email": user.Email,
-		"id":    user.ID,
+		"email":     user.Email,
+		"user_id":   user.ID,
+		"role_id":   userSchoolRole.RoleID,
+		"school_id": userSchoolRole.SchoolID,
 	}
 
 	accessToken, err := jwt.GenerateToken(time.Duration(s.config.JWT.Duration)*time.Hour, jwtPayload, s.config.JWT.Secret)

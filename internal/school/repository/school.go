@@ -86,3 +86,12 @@ func (r *repository) GetListSchool(ctx context.Context, userID uuid.UUID) ([]Sch
 	}
 	return schools, nil
 }
+
+func (r *repository) GetSchoolRoleByUserIDAndSchoolID(ctx context.Context, userID uuid.UUID, schoolID uuid.UUID) (*UserSchoolRole, error) {
+	schoolRole := UserSchoolRole{}
+	err := r.db.GetContext(ctx, &schoolRole, "SELECT id, user_id, school_id, role_id, created_at, updated_at FROM user_school_role WHERE user_id = $1 AND school_id = $2", userID, schoolID)
+	if err != nil {
+		return nil, err
+	}
+	return &schoolRole, nil
+}

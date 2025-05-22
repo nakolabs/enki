@@ -10,6 +10,7 @@ type Repository interface {
 	CreateSchool(ctx context.Context, userID uuid.UUID, school School) error
 	GetSchoolByID(ctx context.Context, id uuid.UUID) (*School, error)
 	GetListSchool(ctx context.Context, userID uuid.UUID) ([]School, error)
+	GetSchoolRoleByUserIDAndSchoolID(ctx context.Context, userID uuid.UUID, schoolID uuid.UUID) (*UserSchoolRole, error)
 }
 
 type repository struct {

@@ -13,6 +13,7 @@ type Service interface {
 	CreatSchool(ctx context.Context, data request.CreateSchoolRequest) error
 	GetDetailSchool(ctx context.Context, schoolID uuid.UUID) (response.DetailSchool, error)
 	GetListSchool(ctx context.Context) (response.ListSchool, error)
+	SwitchSchool(ctx context.Context, schoolID uuid.UUID) (string, error)
 }
 
 type service struct {

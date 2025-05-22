@@ -14,6 +14,7 @@ type Repository interface {
 	CreateVerifyEmailToken(ctx context.Context, u *UserVerifyEmailToken) (string, error)
 	VerifyEmailToken(ctx context.Context, email string) (*UserVerifyEmailToken, error)
 	Redis() *redis.Client
+	GetFirstUserSchoolRolByUserID(ctx context.Context, userID uuid.UUID) (*UserSchoolRole, error)
 }
 type repository struct {
 	db  *sqlx.DB

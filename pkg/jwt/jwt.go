@@ -3,27 +3,59 @@ package jwt
 import (
 	"context"
 	commonError "enuma-elish/pkg/error"
-	"errors"
 	"github.com/golang-jwt/jwt/v5"
-	"log/slog"
+	"github.com/google/uuid"
 	"net/http"
 	"time"
 )
 
 const ContextKey = "JWT"
 
-func GenerateToken(duration time.Duration, payload map[string]interface{}, secret string) (string, error) {
-	expirationTime := time.Now().Add(duration).Unix()
-	claims := jwt.MapClaims{}
-	claims["exp"] = expirationTime
-	for key, v := range payload {
-		claims[key] = v
-	}
+type Payload struct {
+	Exp  int64  `json:"exp"`
+	Iat  int64  `json:"iat"`
+	Sub  string `json:"sub"`
+	Iss  string `json:"iss"`
+	Nbf  int64  `json:"nbf"`
+	Aud  string `json:"aud"`
+	User User   `json:"user"`
+}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+type User struct {
+	ID       uuid.UUID `json:"id"`
+	Email    string    `json:"email"`
+	SchoolID uuid.UUID `json:"school_id"`
+	RoleID   uuid.UUID `json:"role_id"`
+}
+
+func (p *Payload) GetExpirationTime() (*jwt.NumericDate, error) {
+	return &jwt.NumericDate{Time: time.Unix(p.Exp, 0)}, nil
+}
+
+func (p *Payload) GetIssuedAt() (*jwt.NumericDate, error) {
+	return &jwt.NumericDate{Time: time.Unix(p.Iat, 0)}, nil
+}
+
+func (p *Payload) GetNotBefore() (*jwt.NumericDate, error) {
+	return &jwt.NumericDate{Time: time.Unix(p.Nbf, 0)}, nil
+}
+
+func (p *Payload) GetIssuer() (string, error) {
+	return p.Iss, nil
+}
+
+func (p *Payload) GetSubject() (string, error) {
+	return p.Sub, nil
+}
+
+func (p *Payload) GetAudience() (jwt.ClaimStrings, error) {
+	return jwt.ClaimStrings{p.Aud}, nil
+}
+
+func GenerateToken(payload Payload, secret string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &payload)
 	tokenString, err := token.SignedString([]byte(secret))
 	if err != nil {
-		slog.Error(err.Error())
 		return "", err
 	}
 
@@ -31,34 +63,30 @@ func GenerateToken(duration time.Duration, payload map[string]interface{}, secre
 }
 
 func Verify(token, secret string) (*jwt.Token, error) {
-	tokenValidation, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+	payload := new(Payload)
+	parser := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}), jwt.WithIssuedAt(), jwt.WithExpirationRequired())
+	tokenValidation, err := parser.ParseWithClaims(token, payload, func(token *jwt.Token) (interface{}, error) {
 		return []byte(secret), nil
 	})
 	if err != nil || !tokenValidation.Valid {
 		return nil, commonError.New("token is invalid", http.StatusUnauthorized)
 	}
 
-	if claims, ok := tokenValidation.Claims.(jwt.MapClaims); ok {
-		if exp, ok := claims["exp"].(float64); ok && int64(exp) < time.Now().Unix() {
-			return nil, commonError.New("token is expired", http.StatusUnauthorized)
-		}
-	}
-
 	return tokenValidation, nil
 }
 
-func ExtractToken(token jwt.Token) (jwt.MapClaims, error) {
-	claim, ok := token.Claims.(jwt.MapClaims)
+func ExtractToken(token *jwt.Token) (*Payload, error) {
+	claims, ok := token.Claims.(*Payload)
 	if !ok {
-		return nil, errors.New("failed to extract claims")
+		return nil, commonError.New("failed to extract token claims", http.StatusUnauthorized)
 	}
-	return claim, nil
+	return claims, nil
 }
 
-func ExtractContext(c context.Context) (jwt.MapClaims, error) {
-	claims, ok := c.Value(ContextKey).(jwt.MapClaims)
+func ExtractContext(c context.Context) (*Payload, error) {
+	claims, ok := c.Value(ContextKey).(*Payload)
 	if !ok {
-		return nil, errors.New("failed to extract claims from context")
+		return nil, commonError.New("failed to extract claims from context", http.StatusUnauthorized)
 	}
 	return claims, nil
 }

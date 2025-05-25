@@ -33,22 +33,80 @@ func (s *service) Login(ctx context.Context, data request.LoginRequest) (*respon
 		log.Err(err).Str("email", data.Email).Msg("failed to get user first user")
 	}
 
-	jwtPayload := map[string]interface{}{
-		"email":     user.Email,
-		"user_id":   user.ID,
-		"role_id":   userSchoolRole.RoleID,
-		"school_id": userSchoolRole.SchoolID,
+	now := time.Now()
+	exp := now.Add(time.Hour * 2).Unix()
+	nbf := now.Unix()
+	iat := now.Unix()
+	payload := jwt.Payload{
+		Exp: exp,
+		Iat: iat,
+		Nbf: nbf,
+		Iss: "genesis",
+		Sub: user.ID.String(),
+		Aud: "genesis",
+		User: jwt.User{
+			ID:       user.ID,
+			Email:    user.Email,
+			SchoolID: userSchoolRole.SchoolID,
+			RoleID:   userSchoolRole.RoleID,
+		},
 	}
 
-	accessToken, err := jwt.GenerateToken(time.Duration(s.config.JWT.Duration)*time.Hour, jwtPayload, s.config.JWT.Secret)
+	accessToken, err := jwt.GenerateToken(payload, s.config.JWT.Secret)
 	if err != nil {
 		log.Err(err).Str("email", data.Email).Msg("Error generating token")
 		return nil, err
 	}
 
-	refreshToken, err := jwt.GenerateToken(time.Duration(s.config.JWT.Duration)*time.Hour, jwtPayload, s.config.JWT.Secret)
+	refreshPayload := payload
+	refreshPayload.Exp = now.Add(time.Hour * 240).Unix()
+	refreshToken, err := jwt.GenerateToken(refreshPayload, s.config.JWT.Secret)
 	if err != nil {
 		log.Err(err).Str("email", data.Email).Msg("Error generating refresh token")
+		return nil, err
+	}
+
+	res := &response.LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}
+
+	return res, nil
+}
+
+func (s *service) RefreshToken(ctx context.Context, data request.RefreshTokenRequest) (*response.LoginResponse, error) {
+	token, err := jwt.Verify(data.RefreshToken, s.config.JWT.Secret)
+	if err != nil {
+		log.Err(err).Str("refresh_token", data.RefreshToken).Msg("Refresh token invalid")
+		return nil, err
+	}
+
+	payload, err := jwt.ExtractToken(token)
+	if err != nil {
+		log.Err(err).Str("refresh_token", data.RefreshToken).Msg("Refresh token invalid")
+		return nil, err
+	}
+
+	now := time.Now()
+	exp := now.Add(time.Hour * 24).Unix()
+	nbf := now.Unix()
+	iat := now.Unix()
+
+	payload.Exp = exp
+	payload.Iat = iat
+	payload.Nbf = nbf
+
+	accessToken, err := jwt.GenerateToken(*payload, s.config.JWT.Secret)
+	if err != nil {
+		log.Err(err).Msg("Error generating token")
+		return nil, err
+	}
+
+	refreshPayload := payload
+	refreshPayload.Exp = now.Add(time.Hour * 240).Unix()
+	refreshToken, err := jwt.GenerateToken(*refreshPayload, s.config.JWT.Secret)
+	if err != nil {
+		log.Err(err).Msg("Error generating refresh token")
 		return nil, err
 	}
 

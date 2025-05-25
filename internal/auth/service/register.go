@@ -8,6 +8,7 @@ import (
 	commonError "enuma-elish/pkg/error"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
 	"net/smtp"
@@ -33,19 +34,20 @@ func (s *service) Register(ctx context.Context, data request.Register) error {
 	}
 
 	user := repository.UserVerifyEmailToken{
+		Token:    uuid.New().String(),
 		Email:    data.Email,
 		Password: hashPass,
 		Name:     data.Name,
 	}
 
-	token, err := s.repository.CreateVerifyEmailToken(ctx, &user)
+	err = s.repository.CreateVerifyEmailToken(ctx, &user)
 	if err != nil {
 		log.Err(err).Msg("Failed to create verify email token")
 		return err
 	}
 
 	go func() {
-		verifyUrl := fmt.Sprintf("%s/email-verification?token=%s&email=%s", s.config.Http.FrontendHost, token, data.Email)
+		verifyUrl := fmt.Sprintf("%s/email-verification?token=%s&email=%s", s.config.Http.FrontendHost, user.Token, data.Email)
 		err = s.sendEmail(user.Email, verifyUrl, "verify email")
 		if err != nil {
 			log.Err(err).Msg("Failed to send email")

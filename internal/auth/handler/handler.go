@@ -95,3 +95,100 @@ func (h *Handler) VerifyEmail(c *gin.Context) {
 		SetMessage("verify email success")
 	c.JSON(http.StatusOK, response)
 }
+
+func (h *Handler) Me(c *gin.Context) {
+	data, err := h.service.Me(c.Request.Context())
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("me success").
+		SetData(data)
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) ForgotPassword(c *gin.Context) {
+	req := request.ForgotPasswordRequest{}
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	err = h.service.ForgotPassword(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("forgot password success").
+		SetData(req)
+
+	c.JSON(http.StatusOK, response)
+
+}
+
+func (h *Handler) ForgotPasswordVerify(c *gin.Context) {
+	req := request.ForgotPasswordVerifyRequest{}
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	err = h.service.ForgotPasswordVerify(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("forgot password verify success").
+		SetData(req)
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) RefreshToken(c *gin.Context) {
+	req := request.RefreshTokenRequest{}
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	data, err := h.service.RefreshToken(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("refresh token success").
+		SetData(data)
+
+	c.JSON(http.StatusOK, response)
+}

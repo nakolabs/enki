@@ -48,7 +48,7 @@ func Auth(secret string) gin.HandlerFunc {
 			return
 		}
 
-		claim, err := jwt.ExtractToken(*token)
+		claim, err := jwt.ExtractToken(token)
 		if err != nil {
 			response := commonHttp.NewResponse().
 				SetCode(http.StatusUnauthorized).

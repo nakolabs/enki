@@ -9,8 +9,7 @@ import (
 
 type Infra struct {
 	Postgres *sqlx.DB
-
-	Redis *redis.Client
+	Redis    *redis.Client
 }
 
 func New(c *config.Config) (*Infra, error) {

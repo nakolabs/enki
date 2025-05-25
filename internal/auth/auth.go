@@ -6,6 +6,7 @@ import (
 	"enuma-elish/internal/auth/handler"
 	"enuma-elish/internal/auth/repository"
 	"enuma-elish/internal/auth/service"
+	"enuma-elish/pkg/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
@@ -35,5 +36,10 @@ func (a *Auth) Init() {
 	v1.POST("/register", h.Register)
 	v1.POST("/login", h.Login)
 	v1.POST("/register/verify-email", h.VerifyEmail)
+	v1.POST("/forgot-password", h.ForgotPassword)
+	v1.POST("/forgot-password/verify", h.ForgotPasswordVerify)
+	v1.POST("/refresh-token", h.RefreshToken)
+
+	v1.GET("/me", h.Me).Use(middleware.Auth(a.c.JWT.Secret))
 
 }

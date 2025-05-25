@@ -6,8 +6,6 @@ import (
 	"enuma-elish/internal/school/service/data/request"
 	"enuma-elish/internal/school/service/data/response"
 	"enuma-elish/pkg/jwt"
-	"errors"
-	"fmt"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"time"
@@ -29,15 +27,8 @@ func (s *service) CreatSchool(ctx context.Context, data request.CreateSchoolRequ
 		log.Err(err).Msg("Failed to extract claims")
 		return err
 	}
-	fmt.Println(claims)
 
-	userID, ok := claims["id"].(string)
-	if !ok {
-		log.Error().Msg("Failed to extract user id")
-		return errors.New("error extracting user id")
-	}
-
-	err = s.repository.CreateSchool(ctx, uuid.MustParse(userID), school)
+	err = s.repository.CreateSchool(ctx, claims.User.ID, school)
 	if err != nil {
 		log.Err(err).Msg("error creating school")
 		return err
@@ -72,19 +63,7 @@ func (s *service) GetListSchool(ctx context.Context) (response.ListSchool, error
 		return nil, err
 	}
 
-	userIdString, ok := claim["user_id"].(string)
-	if !ok {
-		log.Error().Msg("Failed to extract user id")
-		return nil, errors.New("error extracting user id")
-	}
-
-	userID, err := uuid.Parse(userIdString)
-	if err != nil {
-		log.Err(err).Msg("Failed to extract user id")
-		return nil, err
-	}
-
-	listSchool, err := s.repository.GetListSchool(ctx, userID)
+	listSchool, err := s.repository.GetListSchool(ctx, claim.User.ID)
 	if err != nil {
 		log.Err(err).Msg("error getting list school")
 		return nil, err
@@ -111,38 +90,32 @@ func (s *service) SwitchSchool(ctx context.Context, schoolID uuid.UUID) (string,
 		return "", err
 	}
 
-	userIdString, ok := claim["user_id"].(string)
-	if !ok {
-		log.Error().Msg("Failed to extract user id")
-		return "", errors.New("error extracting user id")
-	}
-
-	userID, err := uuid.Parse(userIdString)
-	if err != nil {
-		log.Err(err).Msg("error parsing user id")
-		return "", err
-	}
-
-	email, ok := claim["email"].(string)
-	if !ok {
-		log.Error().Msg("Failed to extract email")
-		return "", errors.New("error extracting email")
-	}
-
-	userSchoolRole, err := s.repository.GetSchoolRoleByUserIDAndSchoolID(ctx, schoolID, userID)
+	userSchoolRole, err := s.repository.GetSchoolRoleByUserIDAndSchoolID(ctx, schoolID, claim.User.ID)
 	if err != nil {
 		log.Err(err).Msg("error getting school role")
 		return "", err
 	}
 
-	jwtPayload := map[string]interface{}{
-		"email":     email,
-		"user_id":   userID,
-		"role_id":   userSchoolRole.RoleID,
-		"school_id": userSchoolRole.SchoolID,
+	now := time.Now()
+	exp := now.Add(time.Hour * 2).Unix()
+	nbf := now.Unix()
+	iat := now.Unix()
+	payload := jwt.Payload{
+		Exp: exp,
+		Iat: iat,
+		Nbf: nbf,
+		Iss: "genesis",
+		Sub: claim.User.ID.String(),
+		Aud: "genesis",
+		User: jwt.User{
+			ID:       claim.User.ID,
+			Email:    claim.User.Email,
+			SchoolID: schoolID,
+			RoleID:   userSchoolRole.RoleID,
+		},
 	}
 
-	token, err := jwt.GenerateToken(time.Duration(s.config.JWT.Duration)*time.Hour, jwtPayload, s.config.JWT.Secret)
+	token, err := jwt.GenerateToken(payload, s.config.JWT.Secret)
 	if err != nil {
 		log.Err(err).Msg("error generating token")
 		return "", err

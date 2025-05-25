@@ -12,6 +12,10 @@ type Service interface {
 	Register(ctx context.Context, data request.Register) error
 	Login(ctx context.Context, data request.LoginRequest) (*response.LoginResponse, error)
 	VerifyEmail(ctx context.Context, data request.VerifyEmailRequest) error
+	Me(ctx context.Context) (*response.ProfileResponse, error)
+	ForgotPassword(ctx context.Context, data request.ForgotPasswordRequest) error
+	ForgotPasswordVerify(ctx context.Context, data request.ForgotPasswordVerifyRequest) error
+	RefreshToken(ctx context.Context, data request.RefreshTokenRequest) (*response.LoginResponse, error)
 }
 
 type service struct {

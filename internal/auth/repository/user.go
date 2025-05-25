@@ -27,8 +27,14 @@ type UserVerifyEmailToken struct {
 	Password string `json:"password"`
 }
 
+type UserForgotPasswordToken struct {
+	Email string `json:"email"`
+	Token string `json:"token"`
+}
+
 const (
-	VerifyEmailTokenKey = "verify_email_token"
+	VerifyEmailTokenKey    = "verify_email_token"
+	ForgotPasswordTokenKey = "forgot_password"
 )
 
 func (r *repository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, error) {
@@ -60,23 +66,21 @@ func (r *repository) CreateUser(ctx context.Context, u *User) error {
 	return nil
 }
 
-func (r *repository) CreateVerifyEmailToken(ctx context.Context, u *UserVerifyEmailToken) (string, error) {
-	token := uuid.New().String()
+func (r *repository) CreateVerifyEmailToken(ctx context.Context, u *UserVerifyEmailToken) error {
 	key := VerifyEmailTokenKey + ":" + u.Email
-	u.Token = token
 	value, err := json.Marshal(u)
 	if err != nil {
 		log.Err(err).Str("user", u.Email).Msg("failed to marshal verify email token")
-		return "", err
+		return err
 	}
 
 	err = r.rdb.Set(ctx, key, value, time.Minute*30).Err()
 	if err != nil {
 		log.Err(err).Str("user", u.Email).Msg("failed to set verify email token")
-		return "", err
+		return err
 	}
 
-	return token, nil
+	return nil
 }
 
 func (r *repository) VerifyEmailToken(ctx context.Context, email string) (*UserVerifyEmailToken, error) {
@@ -95,6 +99,50 @@ func (r *repository) VerifyEmailToken(ctx context.Context, email string) (*UserV
 	}
 
 	return u, nil
+}
+
+func (r *repository) CreateForgotPasswordToken(ctx context.Context, u *UserForgotPasswordToken) error {
+	key := ForgotPasswordTokenKey + ":" + u.Email
+	value, err := json.Marshal(u)
+	if err != nil {
+		log.Err(err).Str("user", u.Email).Msg("failed to marshal forgot password token")
+		return err
+	}
+
+	err = r.rdb.Set(ctx, key, value, time.Minute*30).Err()
+	if err != nil {
+		log.Err(err).Str("user", u.Email).Msg("failed to set forgot password token")
+		return err
+	}
+
+	return nil
+}
+
+func (r *repository) VerifyForgotPasswordToken(ctx context.Context, email string) (*UserForgotPasswordToken, error) {
+	u := &UserForgotPasswordToken{}
+	key := ForgotPasswordTokenKey + ":" + email
+	res, err := r.rdb.Get(ctx, key).Result()
+	if err != nil {
+		log.Err(err).Str("user", u.Email).Msg("failed get verify forgot password token")
+		return nil, err
+	}
+
+	err = json.Unmarshal([]byte(res), u)
+	if err != nil {
+		log.Err(err).Str("user", u.Email).Msg("failed to unmarshal verify forgot password token")
+		return nil, err
+	}
+
+	return u, nil
+}
+
+func (r *repository) UpdatePassword(ctx context.Context, email, password string) error {
+	_, err := r.db.ExecContext(ctx, "UPDATE users SET password = $1 WHERE email = $2", password, email)
+	if err != nil {
+		log.Err(err).Str("user", email).Msg("failed to update password")
+		return err
+	}
+	return nil
 }
 
 func (r *repository) Redis() *redis.Client {

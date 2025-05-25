@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"enuma-elish/config"
 	"enuma-elish/infra"
 	"enuma-elish/internal/auth"
@@ -14,6 +15,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"net/http"
 	"time"
 )
@@ -36,7 +38,7 @@ func New(c *config.Config, infra *infra.Infra) *API {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	})
-	api.Use(gin.Recovery(), middleware.ErrorParser(), corsMiddleware)
+	api.Use(gin.Recovery(), middleware.ErrorParser(), corsMiddleware, otelgin.Middleware(c.Telemetry.ServiceName))
 
 	api.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -53,6 +55,18 @@ func New(c *config.Config, infra *infra.Infra) *API {
 }
 
 func (api *API) Run() {
+
+	if api.config.Telemetry.Enable {
+		cleanup := infra.InitTracer(&api.config.Telemetry)
+		defer func() {
+			log.Info().Msg("clean up")
+			err := cleanup(context.Background())
+			if err != nil {
+				log.Error().Err(err).Msg("failed to clean up tracer")
+			}
+		}()
+	}
+
 	s := &http.Server{
 		Addr:         fmt.Sprintf("%s:%s", api.config.Http.Host, api.config.Http.Port),
 		Handler:      api,

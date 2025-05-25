@@ -48,12 +48,20 @@ type SMTP struct {
 	Password string `json:"password"`
 }
 
+type Telemetry struct {
+	Enable           bool   `json:"enable"`
+	ServiceName      string `json:"service_name"`
+	ExporterEndpoint string `json:"exporter_endpoint"`
+	SecureMode       bool   `json:"secure_mode"`
+}
+
 type Config struct {
-	Http     Http     `json:"http"`
-	Postgres Postgres `json:"postgres"`
-	JWT      JWT      `json:"jwt"`
-	Redis    Redis    `json:"redis"`
-	SMTP     SMTP     `json:"smtp"`
+	Http      Http      `json:"http"`
+	Postgres  Postgres  `json:"postgres"`
+	JWT       JWT       `json:"jwt"`
+	Redis     Redis     `json:"redis"`
+	SMTP      SMTP      `json:"smtp"`
+	Telemetry Telemetry `json:"telemetry"`
 }
 
 func New(path string) (*Config, error) {

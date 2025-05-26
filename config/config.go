@@ -6,6 +6,11 @@ import (
 	"os"
 )
 
+type App struct {
+	Name string `json:"name"`
+	Env  string `json:"env"`
+}
+
 type Postgres struct {
 	Host            string `json:"host"`
 	Port            string `json:"port"`
@@ -56,6 +61,7 @@ type Telemetry struct {
 }
 
 type Config struct {
+	App       App       `json:"app"`
 	Http      Http      `json:"http"`
 	Postgres  Postgres  `json:"postgres"`
 	JWT       JWT       `json:"jwt"`

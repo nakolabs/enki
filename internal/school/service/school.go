@@ -6,9 +6,10 @@ import (
 	"enuma-elish/internal/school/service/data/request"
 	"enuma-elish/internal/school/service/data/response"
 	"enuma-elish/pkg/jwt"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"time"
 )
 
 func (s *service) CreatSchool(ctx context.Context, data request.CreateSchoolRequest) error {
@@ -122,4 +123,13 @@ func (s *service) SwitchSchool(ctx context.Context, schoolID uuid.UUID) (string,
 	}
 
 	return token, nil
+}
+
+func (s *service) DeleteSchool(ctx context.Context, schoolID uuid.UUID) error {
+	err := s.repository.DeleteSchool(ctx, schoolID)
+	if err != nil {
+		log.Err(err).Msg("Failed to delete school")
+		return err
+	}
+	return nil
 }

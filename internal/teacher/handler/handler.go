@@ -4,10 +4,13 @@ import (
 	"enuma-elish/internal/teacher/service"
 	"enuma-elish/internal/teacher/service/data/request"
 	commonHttp "enuma-elish/pkg/http"
+	"errors"
+	"fmt"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
-	"net/http"
 )
 
 type Handler struct {
@@ -104,21 +107,17 @@ func (h *Handler) UpdateTeacherAfterInvite(c *gin.Context) {
 }
 
 func (h *Handler) ListTeachers(c *gin.Context) {
-	schoolIdStr := c.Param("school_id")
-	schoolID, err := uuid.Parse(schoolIdStr)
+
+	httpQuery := request.GetListTeacherQuery{}
+	httpQuery.Query = commonHttp.DefaultQuery()
+	err := c.BindQuery(&httpQuery)
 	if err != nil {
+		fmt.Println(err)
 		c.Error(err).SetType(gin.ErrorTypeBind)
 		return
 	}
 
-	httpQuery := commonHttp.DefaultQuery()
-	err = c.BindQuery(&httpQuery)
-	if err != nil {
-		c.Error(err).SetType(gin.ErrorTypeBind)
-		return
-	}
-
-	data, meta, err := h.service.ListTeachers(c.Request.Context(), schoolID, httpQuery)
+	data, meta, err := h.service.ListTeachers(c.Request.Context(), httpQuery)
 	if err != nil {
 		response := commonHttp.NewResponse().
 			SetCode(http.StatusInternalServerError).
@@ -134,6 +133,103 @@ func (h *Handler) ListTeachers(c *gin.Context) {
 		SetMessage("get list teacher success").
 		SetData(data).
 		SetMeta(meta)
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) DeleteTeacher(c *gin.Context) {
+	teacherIDStr := c.Param("teacher_id")
+	teacherID, err := uuid.Parse(teacherIDStr)
+	if err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	schoolIDStr := c.Query("school_id")
+	if schoolIDStr == "" {
+		c.Error(errors.New("school_id is required")).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	err = h.service.DeleteTeacher(c.Request.Context(), teacherID, schoolID)
+	if err != nil {
+		response := commonHttp.NewResponse().
+			SetCode(http.StatusInternalServerError).
+			SetMessage("delete teacher error").
+			SetErrors([]error{err})
+
+		c.JSON(response.Code, response)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("delete teacher success")
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) GetDetailTeacher(c *gin.Context) {
+	teacherIDStr := c.Param("teacher_id")
+	teacherID, err := uuid.Parse(teacherIDStr)
+	if err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	data, err := h.service.GetDetailTeacher(c.Request.Context(), teacherID)
+	if err != nil {
+		response := commonHttp.NewResponse().
+			SetCode(http.StatusInternalServerError).
+			SetMessage("get detail teacher error").
+			SetErrors([]error{err})
+
+		c.JSON(response.Code, response)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("get detail teacher success").
+		SetData(data)
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) UpdateTeacherClass(c *gin.Context) {
+	data := request.UpdateTeacherClassRequest{}
+	err := c.ShouldBindJSON(&data)
+	if err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	if err := h.validator.Struct(data); err != nil {
+		c.Error(err)
+		return
+	}
+
+	err = h.service.UpdateTeacherClass(c.Request.Context(), data)
+	if err != nil {
+		response := commonHttp.NewResponse().
+			SetCode(http.StatusInternalServerError).
+			SetMessage("update teacher class error").
+			SetErrors([]error{err})
+
+		c.JSON(response.Code, response)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("teacher class updated successfully").
+		SetData(data)
 
 	c.JSON(http.StatusOK, response)
 }

@@ -5,19 +5,25 @@ import (
 	"enuma-elish/config"
 	"enuma-elish/infra"
 	"enuma-elish/internal/auth"
+	"enuma-elish/internal/class"
+	"enuma-elish/internal/exam"
+	"enuma-elish/internal/ppdb"
+	"enuma-elish/internal/question"
 	"enuma-elish/internal/school"
 	"enuma-elish/internal/student"
+	"enuma-elish/internal/subject"
 	"enuma-elish/internal/teacher"
 	"enuma-elish/pkg/middleware"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
-	"net/http"
-	"time"
 )
 
 type API struct {
@@ -50,6 +56,11 @@ func New(c *config.Config, infra *infra.Infra) *API {
 	school.New(api.config, api.infra, api.Engine, validate).Init()
 	teacher.New(api.config, api.infra, api.Engine, validate).Init()
 	student.New(api.config, api.infra, api.Engine, validate).Init()
+	class.New(api.config, api.infra, api.Engine, validate).Init()
+	subject.New(api.config, api.infra, api.Engine, validate).Init()
+	exam.New(api.config, api.infra, api.Engine, validate).Init()
+	question.New(api.config, api.infra, api.Engine, validate).Init()
+	ppdb.New(api.config, api.infra, api.Engine, validate).Init()
 
 	return api
 }

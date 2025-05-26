@@ -6,6 +6,7 @@ import (
 	"enuma-elish/internal/school/repository"
 	"enuma-elish/internal/school/service/data/request"
 	"enuma-elish/internal/school/service/data/response"
+
 	"github.com/google/uuid"
 )
 
@@ -14,6 +15,7 @@ type Service interface {
 	GetDetailSchool(ctx context.Context, schoolID uuid.UUID) (response.DetailSchool, error)
 	GetListSchool(ctx context.Context) (response.ListSchool, error)
 	SwitchSchool(ctx context.Context, schoolID uuid.UUID) (string, error)
+	DeleteSchool(ctx context.Context, schoolID uuid.UUID) error
 }
 
 type service struct {

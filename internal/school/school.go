@@ -7,6 +7,7 @@ import (
 	"enuma-elish/internal/school/repository"
 	"enuma-elish/internal/school/service"
 	"enuma-elish/pkg/middleware"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
@@ -27,16 +28,17 @@ func New(c *config.Config, i *infra.Infra, r *gin.Engine, v *validator.Validate)
 	}
 }
 
-func (sc *School) Init() {
-	r := repository.New(sc.i.Postgres)
-	s := service.New(r, sc.c)
-	h := handler.New(s, sc.v)
+func (s *School) Init() {
+	r := repository.New(s.i.Postgres)
+	svc := service.New(r, s.c)
+	h := handler.New(svc, s.v)
 
-	authMiddleware := middleware.Auth(sc.c.JWT.Secret)
+	authMiddleware := middleware.Auth(s.c.JWT.Secret)
 
-	v1 := sc.Group("/api/v1/school").Use(authMiddleware)
+	v1 := s.Group("/api/v1/school").Use(authMiddleware)
 	v1.POST("", h.CreateSchool)
 	v1.GET("/:school_id", h.GetDetailSchool)
 	v1.GET("", h.ListSchool)
-	v1.GET("/switch/:school_id", h.SwitchSchool)
+	v1.DELETE("/:school_id", h.DeleteSchool)
+	v1.GET("/:school_id/switch", h.SwitchSchool)
 }

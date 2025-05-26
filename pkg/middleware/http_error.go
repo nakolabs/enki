@@ -2,22 +2,34 @@ package middleware
 
 import (
 	commonError "enuma-elish/pkg/error"
-	"enuma-elish/pkg/http"
+	commonHttp "enuma-elish/pkg/http"
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/rs/zerolog/log"
+	"net/http"
 	"strings"
 )
 
 func ErrorParser() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
+		if c.Writer.Status() == http.StatusNotFound {
+			err := commonError.ErrNotFound
+			response := commonHttp.NewResponse().
+				SetCode(http.StatusNotFound).
+				SetMessage(err.Error()).
+				SetErrors(err.Err)
+
+			c.JSON(response.Code, response)
+			return
+		}
+
 		if err := c.Errors.Last(); err != nil {
 			var apiErr commonError.Error
 			if errors.As(err.Err, &apiErr) {
-				response := http.NewResponse().
+				response := commonHttp.NewResponse().
 					SetCode(apiErr.Code).
 					SetMessage(apiErr.Error())
 
@@ -34,17 +46,17 @@ func ErrorParser() gin.HandlerFunc {
 					errorResponse[key] = append(errorResponse[key], validationReadableError(v))
 				}
 
-				response := http.NewResponse().
+				response := commonHttp.NewResponse().
 					SetCode(422).
 					SetErrors(errorResponse).
 					SetMessage("validation error")
 
-				c.JSON(422, response)
+				c.JSON(response.Code, response)
 				return
 			}
 
 			if err.Type == gin.ErrorTypeBind {
-				response := http.NewResponse().
+				response := commonHttp.NewResponse().
 					SetCode(400).
 					SetErrors(gin.H{"_general": bindingReadableError(err.Err)}).
 					SetMessage("invalid request body")
@@ -53,10 +65,11 @@ func ErrorParser() gin.HandlerFunc {
 				return
 			}
 
-			response := http.NewResponse().
+			response := commonHttp.NewResponse().
 				SetCode(500).
 				SetMessage("internal server error")
-			c.JSON(500, response)
+
+			c.JSON(response.Code, response)
 		}
 	}
 }

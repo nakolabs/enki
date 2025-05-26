@@ -5,14 +5,15 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"github.com/jmoiron/sqlx"
-	"github.com/spf13/cobra"
-	"log/slog"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/cobra"
 )
 
 type Migration struct {
@@ -39,7 +40,6 @@ func extractNumber(s string) int {
 }
 
 func (m *Migration) Create(args []string) {
-
 	if len(args) != 1 {
 		fmt.Println("\nusage: \n\nmigration create migration_name")
 		return
@@ -47,60 +47,62 @@ func (m *Migration) Create(args []string) {
 
 	entries, err := os.ReadDir("migration")
 	if err != nil {
-		slog.Error(err.Error())
+		log.Error().Err(err).Msg("failed to read migration directory")
 		return
 	}
 
-	up := fmt.Sprintf("migration/%d_%s.up.sql", len(entries)/2+1, args[0])
-	fmt.Println("create migration file on " + up)
+	migrationNumber := len(entries)/2 + 1
+	up := fmt.Sprintf("migration/%d_%s.up.sql", migrationNumber, args[0])
+	log.Info().Str("file", up).Msg("creating migration file")
+
 	err = os.WriteFile(up, nil, 0755)
 	if err != nil {
-		slog.Error(err.Error())
+		log.Error().Err(err).Str("file", up).Msg("failed to create up migration file")
 		return
 	}
 
-	down := fmt.Sprintf("migration/%d_%s.down.sql", len(entries)/2+1, args[0])
-	fmt.Println("create migration file on " + down)
+	down := fmt.Sprintf("migration/%d_%s.down.sql", migrationNumber, args[0])
+	log.Info().Str("file", down).Msg("creating migration file")
+
 	err = os.WriteFile(down, nil, 0755)
 	if err != nil {
-		slog.Error(err.Error())
+		log.Error().Err(err).Str("file", down).Msg("failed to create down migration file")
 		return
 	}
 
-	slog.Info("success")
+	log.Info().Str("migration_name", args[0]).Int("number", migrationNumber).Msg("migration created successfully")
 }
 
-func (m *Migration) Up() {
-
+func (m *Migration) Up() error {
 	_, err := m.db.Exec(`CREATE TABLE IF NOT EXISTS migration (
 		version VARCHAR(255) NOT NULL,
 		created_at bigint NOT NULL
 	)`)
 	if err != nil {
-		slog.Error(err.Error())
-		return
+		log.Error().Err(err).Msg("failed to create migration table")
+		return err
 	}
 
-	migration := &struct {
-		Version   string `db:"version"`
-		CreatedAt int64  `db:"created_at"`
-	}{}
+	migration := &MigrationRecord{}
 
 	err = m.db.Get(migration, "SELECT * FROM migration ORDER BY created_at DESC")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		slog.Error(err.Error())
-		return
+		log.Error().Err(err).Msg("failed to get latest migration")
+		return err
 	}
 
 	gotLatest := false
 	if migration.CreatedAt == 0 {
 		gotLatest = true
+		log.Info().Msg("no previous migrations found, running all migrations")
+	} else {
+		log.Info().Str("latest_version", migration.Version).Msg("found latest migration")
 	}
 
 	files, err := m.migrateFS.ReadDir("migration")
 	if err != nil {
-		slog.Error(err.Error())
-		return
+		log.Error().Err(err).Msg("failed to read migration directory")
+		return err
 	}
 
 	sort.SliceStable(files, func(i, j int) bool {
@@ -111,11 +113,12 @@ func (m *Migration) Up() {
 
 	tx, err := m.db.Beginx()
 	if err != nil {
-		slog.Error(err.Error())
-		return
+		log.Error().Err(err).Msg("failed to begin transaction")
+		return err
 	}
 	defer tx.Rollback()
 
+	migrationsRun := 0
 	for i := 0; i < len(files); i++ {
 		fName := files[i].Name()
 		if !strings.Contains(fName, ".up.sql") {
@@ -124,25 +127,27 @@ func (m *Migration) Up() {
 
 		fileName := strings.ReplaceAll(fName, ".up.sql", "")
 		if gotLatest {
-			fmt.Printf("migration/%s \n", fName)
+			log.Info().Str("file", fName).Str("version", fileName).Msg("executing migration")
+
 			byteFile, err := m.migrateFS.ReadFile(fmt.Sprintf("migration/%s", fName))
 			if err != nil {
-				slog.Error(err.Error())
-				return
+				log.Error().Err(err).Str("file", fName).Msg("failed to read migration file")
+				return err
 			}
 
 			_, err = tx.Exec(string(byteFile))
 			if err != nil {
-				slog.Error(err.Error())
-				return
+				log.Error().Err(err).Str("file", fName).Msg("failed to execute migration")
+				return err
 			}
 
 			_, err = tx.Exec("INSERT INTO migration (version,created_at) VALUES ($1, $2)", fileName, time.Now().UnixMilli())
 			if err != nil {
-				slog.Error(err.Error())
-				return
+				log.Error().Err(err).Str("version", fileName).Msg("failed to insert migration record")
+				return err
 			}
 
+			migrationsRun++
 		}
 
 		if fileName == migration.Version {
@@ -152,42 +157,42 @@ func (m *Migration) Up() {
 
 	err = tx.Commit()
 	if err != nil {
-		slog.Error(err.Error())
-		return
+		log.Error().Err(err).Msg("failed to commit migration transaction")
+		return err
 	}
 
-	slog.Info("success")
+	log.Info().Int("migrations_executed", migrationsRun).Msg("migration completed successfully")
+	return nil
 }
 
-func (m *Migration) Down() {
+func (m *Migration) Down() error {
 	_, err := m.db.Exec(`CREATE TABLE IF NOT EXISTS migration (
 		version VARCHAR(255) NOT NULL,
 		created_at bigint NOT NULL
 	)`)
 	if err != nil {
-		slog.Error(err.Error())
-		return
+		log.Error().Err(err).Msg("failed to create migration table")
+		return err
 	}
 
-	migration := &struct {
-		Version   string `db:"version"`
-		CreatedAt int64  `db:"created_at"`
-	}{}
+	migration := &MigrationRecord{}
 
 	err = m.db.Get(migration, "SELECT * FROM migration ORDER BY created_at DESC")
 	if err == sql.ErrNoRows {
-		slog.Info("no migration version to down to down")
-		return
+		log.Info().Msg("no migration version to rollback")
+		return nil
 	}
 	if err != nil {
-		slog.Error(err.Error())
-		return
+		log.Error().Err(err).Msg("failed to get latest migration")
+		return err
 	}
+
+	log.Info().Str("target_version", migration.Version).Msg("rolling back migration")
 
 	files, err := m.migrateFS.ReadDir("migration")
 	if err != nil {
-		slog.Error(err.Error())
-		return
+		log.Error().Err(err).Msg("failed to read migration directory")
+		return err
 	}
 
 	sort.SliceStable(files, func(i, j int) bool {
@@ -198,8 +203,8 @@ func (m *Migration) Down() {
 
 	tx, err := m.db.Beginx()
 	if err != nil {
-		slog.Error(err.Error())
-		return
+		log.Error().Err(err).Msg("failed to begin transaction")
+		return err
 	}
 	defer tx.Rollback()
 
@@ -210,24 +215,24 @@ func (m *Migration) Down() {
 
 		fileName := strings.ReplaceAll(v.Name(), ".down.sql", "")
 		if fileName == migration.Version {
+			log.Info().Str("file", v.Name()).Str("version", fileName).Msg("executing migration rollback")
 
-			fmt.Printf("migration/%s \n", v.Name())
 			byteFile, err := m.migrateFS.ReadFile(fmt.Sprintf("migration/%s", v.Name()))
 			if err != nil {
-				slog.Error(err.Error())
-				return
+				log.Error().Err(err).Str("file", v.Name()).Msg("failed to read migration file")
+				return err
 			}
 
 			_, err = tx.Exec(string(byteFile))
 			if err != nil {
-				slog.Error(err.Error())
-				return
+				log.Error().Err(err).Str("file", v.Name()).Msg("failed to execute migration rollback")
+				return err
 			}
 
 			_, err = tx.Exec("DELETE FROM migration WHERE version = $1", fileName)
 			if err != nil {
-				slog.Error(err.Error())
-				return
+				log.Error().Err(err).Str("version", fileName).Msg("failed to delete migration record")
+				return err
 			}
 
 			break
@@ -236,35 +241,40 @@ func (m *Migration) Down() {
 
 	err = tx.Commit()
 	if err != nil {
-		slog.Error(err.Error())
-		return
+		log.Error().Err(err).Msg("failed to commit migration rollback")
+		return err
 	}
 
-	slog.Info("success")
+	log.Info().Str("rolled_back_version", migration.Version).Msg("migration rollback completed successfully")
+	return nil
 }
 
 func (m *Migration) Seed() {
 	files, err := m.seedFS.ReadDir("seeder")
 	if err != nil {
-		slog.Error(err.Error())
+		log.Error().Err(err).Msg("failed to read seeder directory")
 		return
 	}
 
+	log.Info().Int("seed_files", len(files)).Msg("starting database seeding")
+
 	for _, file := range files {
-		fmt.Printf("seeder/%s \n", file.Name())
+		log.Info().Str("file", file.Name()).Msg("executing seed file")
+
 		b, err := m.seedFS.ReadFile(fmt.Sprintf("seeder/%s", file.Name()))
 		if err != nil {
-			slog.Error(err.Error())
+			log.Error().Err(err).Str("file", file.Name()).Msg("failed to read seed file")
 			return
 		}
+
 		_, err = m.db.Exec(string(b))
 		if err != nil {
-			slog.Error(err.Error())
+			log.Error().Err(err).Str("file", file.Name()).Msg("failed to execute seed file")
 			return
 		}
 	}
 
-	fmt.Printf("success\n")
+	log.Info().Int("seed_files_executed", len(files)).Msg("database seeding completed successfully")
 }
 
 func (m *Migration) Command() *cobra.Command {
@@ -285,7 +295,10 @@ func (m *Migration) Command() *cobra.Command {
 		Use:   "up",
 		Short: "up migration",
 		Run: func(cmd *cobra.Command, args []string) {
-			m.Up()
+			err := m.Up()
+			if err != nil {
+				log.Error().Err(err).Msg("migration up failed")
+			}
 		},
 	}
 
@@ -293,7 +306,10 @@ func (m *Migration) Command() *cobra.Command {
 		Use:   "down",
 		Short: "down migration",
 		Run: func(cmd *cobra.Command, args []string) {
-			m.Down()
+			err := m.Down()
+			if err != nil {
+				log.Error().Err(err).Msg("migration down failed")
+			}
 		},
 	}
 

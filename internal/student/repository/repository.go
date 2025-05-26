@@ -2,11 +2,14 @@ package repository
 
 import (
 	"context"
+	"enuma-elish/internal/student/service/data/request"
+	"fmt"
+	"time"
+
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog/log"
-	"time"
 )
 
 type Repository interface {
@@ -14,8 +17,12 @@ type Repository interface {
 	CreateStudentVerifyEmailToken(ctx context.Context, email string) (string, error)
 	VerifyEmailToken(ctx context.Context, email string) (string, error)
 	GetStudentByEmail(ctx context.Context, email string) (*User, error)
+	GetStudentByID(ctx context.Context, studentID uuid.UUID) (*User, error)
 	Redis() *redis.Client
-	UpdateTeacher(ctx context.Context, teacher User) error
+	UpdateStudent(ctx context.Context, student User) error
+	DeleteStudent(ctx context.Context, studentID uuid.UUID, schoolID uuid.UUID) error
+	GetListStudent(ctx context.Context, httpQuery request.GetListStudentQuery) ([]User, int, error)
+	UpdateStudentClass(ctx context.Context, studentID, oldClassID, newClassID uuid.UUID) error
 }
 
 type repository struct {
@@ -54,14 +61,17 @@ func (r *repository) CreateStudent(ctx context.Context, schoolID uuid.UUID, u []
 		return err
 	}
 
-	defer func(tx *sqlx.Tx) {
-		err := tx.Rollback()
-		if err != nil {
-			log.Error().Err(err).Msg("error rolling back transaction")
+	// Rollback hanya jika terjadi error sebelum commit
+	committed := false
+	defer func() {
+		if !committed {
+			if err := tx.Rollback(); err != nil {
+				log.Error().Err(err).Msg("error rolling back transaction")
+			}
 		}
-	}(tx)
+	}()
 
-	insertUserQuery := "INSERT INTO users (id, name, password, email, is_verified, created_at, updated_at) VALUES (:id, :name, :password, :email, :is_verified, :created_at, :updated_at) ON CONFLICT (email) DO NOTHING "
+	insertUserQuery := "INSERT INTO users (id, name, password, email, is_verified, created_at, updated_at) VALUES (:id, :name, :password, :email, :is_verified, :created_at, :updated_at) ON CONFLICT (email) DO NOTHING"
 	insertUserSchoolRoleQuery := "INSERT INTO user_school_role (id, user_id, role_id, school_id, created_at, updated_at) VALUES (:id, :user_id, :role_id, :school_id, :created_at, :updated_at) ON CONFLICT (user_id, school_id, role_id) DO NOTHING"
 
 	_, err = tx.NamedExecContext(ctx, insertUserQuery, u)
@@ -87,6 +97,9 @@ func (r *repository) CreateStudent(ctx context.Context, schoolID uuid.UUID, u []
 
 	var studentRoleID uuid.UUID
 	err = tx.GetContext(ctx, &studentRoleID, "SELECT id FROM role WHERE name = 'student'")
+	if err != nil {
+		return err
+	}
 
 	var userSchoolRole []UserSchoolRole
 	now := time.Now().UnixMilli()
@@ -109,6 +122,7 @@ func (r *repository) CreateStudent(ctx context.Context, schoolID uuid.UUID, u []
 	if err != nil {
 		return err
 	}
+	committed = true
 
 	return nil
 }
@@ -119,7 +133,6 @@ func (r *repository) CreateStudentVerifyEmailToken(ctx context.Context, email st
 	if err != nil {
 		return "", err
 	}
-
 	return token, nil
 }
 
@@ -131,28 +144,136 @@ func (r *repository) VerifyEmailToken(ctx context.Context, email string) (string
 		log.Err(err).Str("user", email).Msg("failed get verify email token")
 		return token, err
 	}
-
 	return token, nil
 }
 
 func (r *repository) GetStudentByEmail(ctx context.Context, email string) (*User, error) {
-	teacher := &User{}
-	err := r.db.GetContext(ctx, teacher, "SELECT * FROM users WHERE email = $1", email)
+	student := &User{}
+	err := r.db.GetContext(ctx, student, "SELECT * FROM users WHERE email = $1", email)
 	if err != nil {
 		return nil, err
 	}
-	return teacher, nil
+	return student, nil
+}
+
+func (r *repository) GetStudentByID(ctx context.Context, studentID uuid.UUID) (*User, error) {
+	student := &User{}
+	err := r.db.GetContext(ctx, student, "SELECT * FROM users WHERE id = $1", studentID)
+	if err != nil {
+		return nil, err
+	}
+	return student, nil
 }
 
 func (r *repository) Redis() *redis.Client {
 	return r.rdb
 }
 
-func (r *repository) UpdateTeacher(ctx context.Context, teacher User) error {
-	updateTeacher := "UPDATE users SET name = :name, email = :email, password = :password, is_verified = :is_verified, updated_at = :updated_at WHERE id = :id"
-	_, err := r.db.NamedExecContext(ctx, updateTeacher, teacher)
+func (r *repository) UpdateStudent(ctx context.Context, student User) error {
+	updateStudent := "UPDATE users SET name = :name, email = :email, password = :password, is_verified = :is_verified, updated_at = :updated_at WHERE id = :id"
+	_, err := r.db.NamedExecContext(ctx, updateStudent, student)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (r *repository) DeleteStudent(ctx context.Context, studentID uuid.UUID, schoolID uuid.UUID) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	committed := false
+	defer func() {
+		if !committed {
+			if err := tx.Rollback(); err != nil {
+				log.Error().Err(err).Msg("error rolling back transaction")
+			}
+		}
+	}()
+
+	// Delete from user_school_role first (foreign key constraint)
+	_, err = tx.ExecContext(ctx, "DELETE FROM user_school_role WHERE user_id = $1 AND school_id = $2", studentID, schoolID)
+	if err != nil {
+		return err
+	}
+
+	// Check if user has other school associations
+	var count int
+	err = tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM user_school_role WHERE user_id = $1", studentID)
+	if err != nil {
+		return err
+	}
+
+	// If no other associations, delete the user
+	if count == 0 {
+		_, err = tx.ExecContext(ctx, "DELETE FROM users WHERE id = $1", studentID)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	committed = true
+
+	return nil
+}
+
+func (r *repository) GetListStudent(ctx context.Context, httpQuery request.GetListStudentQuery) ([]User, int, error) {
+	var students []User
+	selectStudent := "SELECT users.id, name, email, is_verified, user_school_role.created_at, user_school_role.updated_at FROM users JOIN user_school_role on users.id = user_school_role.user_id WHERE true"
+	countQuery := "SELECT COUNT(*) FROM users JOIN user_school_role on users.id = user_school_role.user_id WHERE true"
+
+	var studentRoleID uuid.UUID
+	err := r.db.GetContext(ctx, &studentRoleID, "SELECT id FROM role WHERE name = 'student'")
+	if err != nil {
+		return nil, 0, err
+	}
+
+	filterParams := []interface{}{httpQuery.SchoolID, studentRoleID}
+	filterQuery := " AND user_school_role.school_id = ? AND user_school_role.role_id = ?"
+
+	if httpQuery.Search != "" && len(httpQuery.SearchBy) > 0 {
+		filterQuery += " AND ("
+		for i, v := range httpQuery.SearchBy {
+			if i > 0 {
+				filterQuery += " OR "
+			}
+			filterQuery += fmt.Sprintf("%s LIKE ?", v)
+			filterParams = append(filterParams, "%"+httpQuery.Search+"%")
+		}
+		filterQuery += ")"
+	}
+
+	if httpQuery.StartDate > 0 && httpQuery.EndDate > 0 {
+		filterParams = append(filterParams, httpQuery.DateRange.StartDate, httpQuery.DateRange.EndDate)
+		filterQuery += " AND created_at BETWEEN ? AND ?"
+	} else if httpQuery.StartDate > 0 {
+		filterParams = append(filterParams, httpQuery.DateRange.StartDate)
+		filterQuery += " AND created_at >= ?"
+	} else if httpQuery.EndDate > 0 {
+		filterParams = append(filterParams, httpQuery.DateRange.EndDate)
+		filterQuery += " AND created_at <= ?"
+	}
+
+	limitOrderQuery := fmt.Sprintf(" ORDER BY %s %s LIMIT ? OFFSET ? ", httpQuery.OrderBy, httpQuery.Order)
+	limitOrderParams := []interface{}{httpQuery.PageSize, httpQuery.GetOffset()}
+
+	selectParams := append(filterParams, limitOrderParams...)
+	err = r.db.SelectContext(ctx, &students, r.db.Rebind(selectStudent+filterQuery+limitOrderQuery), selectParams...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total := 0
+	err = r.db.GetContext(ctx, &total, r.db.Rebind(countQuery+filterQuery), filterParams...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return students, total, nil
 }

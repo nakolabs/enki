@@ -16,7 +16,6 @@ func TestRegister(t *testing.T) {
 	defer server.Close()
 
 	body := request.Register{
-		Username: "test",
 		Password: "12345678",
 		Name:     "test",
 		Email:    "galihwisnu18@gmail.com",

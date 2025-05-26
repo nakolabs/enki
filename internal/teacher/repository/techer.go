@@ -3,13 +3,14 @@ package repository
 import (
 	"context"
 	"database/sql"
-	commonHttp "enuma-elish/pkg/http"
+	"enuma-elish/internal/teacher/service/data/request"
 	"fmt"
+	"time"
+
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog/log"
-	"time"
 )
 
 const TeacherVerifyEmailTokenKey = "teacher:verify:email"
@@ -112,7 +113,7 @@ func (r *repository) UpdateTeacher(ctx context.Context, teacher User) error {
 	return nil
 }
 
-func (r *repository) GetListTeachers(ctx context.Context, schoolID uuid.UUID, httpQuery commonHttp.Query) ([]User, int, error) {
+func (r *repository) GetListTeachers(ctx context.Context, httpQuery request.GetListTeacherQuery) ([]User, int, error) {
 	var teachers []User
 	selectTeacher := "SELECT users.id, name, email, is_verified, user_school_role.created_at, user_school_role.updated_at FROM users JOIN user_school_role on users.id = user_school_role.user_id WHERE true"
 	countQuery := "SELECT COUNT(*) FROM users JOIN user_school_role on users.id = user_school_role.user_id WHERE true "
@@ -125,7 +126,7 @@ func (r *repository) GetListTeachers(ctx context.Context, schoolID uuid.UUID, ht
 
 	filterParams := make([]interface{}, 0)
 	filterQuery := ""
-	filterParams = append(filterParams, schoolID, teacherRoleID)
+	filterParams = append(filterParams, httpQuery.SchoolID, teacherRoleID)
 	filterQuery += " AND user_school_role.school_id = ? AND user_school_role.role_id = ? "
 
 	if httpQuery.Search != "" {
@@ -205,4 +206,99 @@ func (r *repository) Redis() *redis.Client {
 
 func (r *repository) Tx(ctx context.Context, options *sql.TxOptions) (*sqlx.Tx, error) {
 	return r.db.BeginTxx(ctx, options)
+}
+
+func (r *repository) DeleteTeacher(ctx context.Context, teacherID uuid.UUID, schoolID uuid.UUID) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	defer func(tx *sqlx.Tx) {
+		err := tx.Rollback()
+		if err != nil {
+			log.Err(err).Msg("error rolling back transaction")
+		}
+	}(tx)
+
+	// Delete from user_school_role first (foreign key constraint)
+	_, err = tx.ExecContext(ctx, "DELETE FROM user_school_role WHERE user_id = $1 AND school_id = $2", teacherID, schoolID)
+	if err != nil {
+		return err
+	}
+
+	// Check if user has other school associations
+	var count int
+	err = tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM user_school_role WHERE user_id = $1", teacherID)
+	if err != nil {
+		return err
+	}
+
+	// If no other associations, delete the user
+	if count == 0 {
+		_, err = tx.ExecContext(ctx, "DELETE FROM users WHERE id = $1", teacherID)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *repository) GetTeacherByID(ctx context.Context, teacherID uuid.UUID) (*User, error) {
+	teacher := &User{}
+	err := r.db.GetContext(ctx, teacher, "SELECT * FROM users WHERE id = $1", teacherID)
+	if err != nil {
+		return nil, err
+	}
+	return teacher, nil
+}
+
+func (r *repository) UpdateTeacherClass(ctx context.Context, teacherID, oldClassID, newClassID uuid.UUID) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	committed := false
+	defer func() {
+		if !committed {
+			if err := tx.Rollback(); err != nil {
+				log.Error().Err(err).Msg("error rolling back transaction")
+			}
+		}
+	}()
+
+	// Update the class_teacher record
+	updateQuery := `UPDATE class_teacher 
+					SET class_id = $1, updated_at = $2 
+					WHERE teacher_id = $3 AND class_id = $4`
+
+	now := time.Now().UnixMilli()
+	result, err := tx.ExecContext(ctx, updateQuery, newClassID, now, teacherID, oldClassID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no class assignment found for teacher %s in class %s", teacherID, oldClassID)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	committed = true
+
+	return nil
 }

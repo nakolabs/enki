@@ -1,6 +1,8 @@
 package request
 
 import (
+	commonHttp "enuma-elish/pkg/http"
+
 	"github.com/google/uuid"
 )
 
@@ -19,4 +21,16 @@ type UpdateTeacherAfterVerifyEmailRequest struct {
 	Password string `json:"password"`
 	Token    string `json:"token"`
 	Email    string `json:"email"`
+}
+
+type GetListTeacherQuery struct {
+	SchoolID string `form:"school_id" binding:"required,uuid"`
+	commonHttp.Query
+}
+
+func (q GetListTeacherQuery) Get() (commonHttp.Query, map[string]interface{}) {
+	f := map[string]interface{}{
+		"school_id": q.SchoolID,
+	}
+	return q.Query, f
 }

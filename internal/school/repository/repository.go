@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -11,6 +12,7 @@ type Repository interface {
 	GetSchoolByID(ctx context.Context, id uuid.UUID) (*School, error)
 	GetListSchool(ctx context.Context, userID uuid.UUID) ([]School, error)
 	GetSchoolRoleByUserIDAndSchoolID(ctx context.Context, userID uuid.UUID, schoolID uuid.UUID) (*UserSchoolRole, error)
+	DeleteSchool(ctx context.Context, schoolID uuid.UUID) error
 }
 
 type repository struct {

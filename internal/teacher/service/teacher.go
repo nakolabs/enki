@@ -8,11 +8,12 @@ import (
 	commonError "enuma-elish/pkg/error"
 	commonHttp "enuma-elish/pkg/http"
 	"fmt"
+	"net/smtp"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
-	"net/smtp"
-	"time"
 )
 
 func (s *service) InviteTeacher(ctx context.Context, data request.InviteTeacherRequest) error {
@@ -133,18 +134,18 @@ func hashPassword(password string) (string, error) {
 	return string(bytes), err
 }
 
-func (s *service) ListTeachers(ctx context.Context, schoolID uuid.UUID, httpQuery commonHttp.Query) ([]response.ListTeacherResponse, *commonHttp.Meta, error) {
+func (s *service) ListTeachers(ctx context.Context, httpQuery request.GetListTeacherQuery) (response.GetListTeacherResponse, *commonHttp.Meta, error) {
 
-	listTeacher, total, err := s.repository.GetListTeachers(ctx, schoolID, httpQuery)
+	listTeacher, total, err := s.repository.GetListTeachers(ctx, httpQuery)
 	if err != nil {
 		log.Err(err).Msg("list teachers")
 		return nil, nil, err
 	}
 
 	meta := commonHttp.NewMetaFromQuery(httpQuery, total)
-	res := make([]response.ListTeacherResponse, len(listTeacher))
+	res := make(response.GetListTeacherResponse, len(listTeacher))
 	for i, teacher := range listTeacher {
-		res[i] = response.ListTeacherResponse{
+		res[i] = response.GetTeacherResponse{
 			ID:         teacher.ID,
 			Name:       teacher.Name,
 			Email:      teacher.Email,
@@ -155,4 +156,41 @@ func (s *service) ListTeachers(ctx context.Context, schoolID uuid.UUID, httpQuer
 	}
 
 	return res, meta, nil
+}
+
+func (s *service) DeleteTeacher(ctx context.Context, teacherID uuid.UUID, schoolID uuid.UUID) error {
+	err := s.repository.DeleteTeacher(ctx, teacherID, schoolID)
+	if err != nil {
+		log.Err(err).Msg("Failed to delete teacher")
+		return err
+	}
+	return nil
+}
+
+func (s *service) GetDetailTeacher(ctx context.Context, teacherID uuid.UUID) (response.GetDetailTeacherResponse, error) {
+	teacher, err := s.repository.GetTeacherByID(ctx, teacherID)
+	if err != nil {
+		log.Err(err).Msg("Failed to get teacher")
+		return response.GetDetailTeacherResponse{}, err
+	}
+
+	res := response.GetDetailTeacherResponse{
+		ID:         teacher.ID,
+		Name:       teacher.Name,
+		Email:      teacher.Email,
+		IsVerified: teacher.IsVerified,
+		CreateAt:   teacher.CreatedAt,
+		UpdateAt:   teacher.UpdatedAt,
+	}
+
+	return res, nil
+}
+
+func (s *service) UpdateTeacherClass(ctx context.Context, data request.UpdateTeacherClassRequest) error {
+	err := s.repository.UpdateTeacherClass(ctx, data.TeacherID, data.OldClassID, data.NewClassID)
+	if err != nil {
+		log.Err(err).Msg("Failed to update teacher class assignment")
+		return err
+	}
+	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"enuma-elish/internal/teacher/repository"
 	"enuma-elish/internal/teacher/service"
 	"enuma-elish/pkg/middleware"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
@@ -27,15 +28,18 @@ func New(c *config.Config, i *infra.Infra, r *gin.Engine, v *validator.Validate)
 	}
 }
 
-func (sc *Teacher) Init() {
-	r := repository.New(sc.i.Postgres, sc.i.Redis)
-	s := service.New(sc.c, r)
-	h := handler.New(s, sc.v)
+func (t *Teacher) Init() {
+	r := repository.New(t.i.Postgres, t.i.Redis)
+	s := service.New(t.c, r)
+	h := handler.New(s, t.v)
 
-	authMiddleware := middleware.Auth(sc.c.JWT.Secret)
+	authMiddleware := middleware.Auth(t.c.JWT.Secret)
 
-	v1 := sc.Group("/api/v1/teacher").Use(authMiddleware)
-	v1.GET("/school/:school_id", h.ListTeachers)
+	v1 := t.Group("/api/v1/teacher").Use(authMiddleware)
+	v1.GET("", h.ListTeachers)
+	v1.GET("/:teacher_id", h.GetDetailTeacher)
+	v1.DELETE("/:teacher_id", h.DeleteTeacher)
+	v1.PUT("/class", h.UpdateTeacherClass)
 
 	v1.POST("/invite", h.InviteTeacher)
 	v1.POST("/invite/verify", h.VerifyTeacherEmail)

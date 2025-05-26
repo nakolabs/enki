@@ -5,19 +5,26 @@ import (
 	"enuma-elish/config"
 	"enuma-elish/internal/student/repository"
 	"enuma-elish/internal/student/service/data/request"
+	"enuma-elish/internal/student/service/data/response"
 	commonError "enuma-elish/pkg/error"
+	commonHttp "enuma-elish/pkg/http"
 	"fmt"
+	"net/smtp"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
-	"net/smtp"
-	"time"
 )
 
 type Service interface {
 	InviteStudent(ctx context.Context, data request.InviteStudentRequest) error
-	VerifyTeacherEmail(ctx context.Context, data request.VerifyStudentEmailRequest) error
-	UpdateTeacherAfterVerifyEmail(ctx context.Context, data request.UpdateStudentAfterVerifyEmailRequest) error
+	VerifyStudentEmail(ctx context.Context, data request.VerifyStudentEmailRequest) error
+	UpdateStudentAfterVerifyEmail(ctx context.Context, data request.UpdateStudentAfterVerifyEmailRequest) error
+	GetListStudent(ctx context.Context, httpQuery request.GetListStudentQuery) (response.GetListStudentResponse, *commonHttp.Meta, error)
+	GetDetailStudent(ctx context.Context, studentID uuid.UUID) (response.GetDetailStudentResponse, error)
+	DeleteStudent(ctx context.Context, studentID uuid.UUID, schoolID uuid.UUID) error
+	UpdateStudentClass(ctx context.Context, data request.UpdateStudentClassRequest) error
 }
 
 type service struct {
@@ -83,7 +90,7 @@ func (s *service) sendEmail(to string, msg, subject string) error {
 	return nil
 }
 
-func (s *service) UpdateTeacherAfterVerifyEmail(ctx context.Context, data request.UpdateStudentAfterVerifyEmailRequest) error {
+func (s *service) UpdateStudentAfterVerifyEmail(ctx context.Context, data request.UpdateStudentAfterVerifyEmailRequest) error {
 
 	token, err := s.repository.VerifyEmailToken(ctx, data.Email)
 	if err != nil {
@@ -117,7 +124,7 @@ func (s *service) UpdateTeacherAfterVerifyEmail(ctx context.Context, data reques
 		UpdatedAt:  time.Now().UnixMilli(),
 	}
 
-	err = s.repository.UpdateTeacher(ctx, *teacher)
+	err = s.repository.UpdateStudent(ctx, *teacher)
 	if err != nil {
 		log.Err(err).Msg("Failed to update teacher")
 		return commonError.ErrInternal
@@ -132,7 +139,7 @@ func hashPassword(password string) (string, error) {
 	return string(bytes), err
 }
 
-func (s *service) VerifyTeacherEmail(ctx context.Context, data request.VerifyStudentEmailRequest) error {
+func (s *service) VerifyStudentEmail(ctx context.Context, data request.VerifyStudentEmailRequest) error {
 	token, err := s.repository.VerifyEmailToken(ctx, data.Email)
 	if err != nil {
 		log.Err(err).Msg("Failed to verify student email token")
@@ -144,5 +151,66 @@ func (s *service) VerifyTeacherEmail(ctx context.Context, data request.VerifyStu
 		return commonError.ErrInvalidToken
 	}
 
+	return nil
+}
+
+func (s *service) GetListStudent(ctx context.Context, httpQuery request.GetListStudentQuery) (response.GetListStudentResponse, *commonHttp.Meta, error) {
+	data, total, err := s.repository.GetListStudent(ctx, httpQuery)
+	if err != nil {
+		log.Err(err).Msg("Failed to get students")
+		return response.GetListStudentResponse{}, nil, nil
+	}
+
+	res := response.GetListStudentResponse{}
+	for _, student := range data {
+		res = append(res, response.GetStudentResponse{
+			ID:         student.ID,
+			Name:       student.Name,
+			Email:      student.Email,
+			IsVerified: student.IsVerified,
+			CreateAt:   student.CreatedAt,
+			UpdateAt:   student.UpdatedAt,
+		})
+	}
+
+	meta := commonHttp.NewMetaFromQuery(httpQuery, total)
+
+	return res, meta, nil
+}
+
+func (s *service) DeleteStudent(ctx context.Context, studentID uuid.UUID, schoolID uuid.UUID) error {
+	err := s.repository.DeleteStudent(ctx, studentID, schoolID)
+	if err != nil {
+		log.Err(err).Msg("Failed to delete student")
+		return err
+	}
+	return nil
+}
+
+func (s *service) GetDetailStudent(ctx context.Context, studentID uuid.UUID) (response.GetDetailStudentResponse, error) {
+	student, err := s.repository.GetStudentByID(ctx, studentID)
+	if err != nil {
+		log.Err(err).Msg("Failed to get student")
+		return response.GetDetailStudentResponse{}, err
+	}
+
+	res := response.GetDetailStudentResponse{
+		ID:         student.ID,
+		Name:       student.Name,
+		Email:      student.Email,
+		IsVerified: student.IsVerified,
+		CreateAt:   student.CreatedAt,
+		UpdateAt:   student.UpdatedAt,
+	}
+
+	return res, nil
+}
+
+func (s *service) UpdateStudentClass(ctx context.Context, data request.UpdateStudentClassRequest) error {
+	err := s.repository.UpdateStudentClass(ctx, data.StudentID, data.OldClassID, data.NewClassID)
+	if err != nil {
+		log.Err(err).Msg("Failed to update student class assignment")
+		return err
+	}
 	return nil
 }

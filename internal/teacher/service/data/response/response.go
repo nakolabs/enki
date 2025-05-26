@@ -4,11 +4,22 @@ import (
 	"github.com/google/uuid"
 )
 
-type ListTeacherResponse struct {
+type GetTeacherResponse struct {
 	ID         uuid.UUID `json:"id"`
 	Name       string    `json:"name"`
 	Email      string    `json:"email"`
 	IsVerified bool      `json:"is_verified"`
-	CreateAt   int64     `json:"create_at"`
-	UpdateAt   int64     `json:"update_at"`
+	CreateAt   int64     `json:"created_at"`
+	UpdateAt   int64     `json:"updated_at"`
+}
+
+type GetListTeacherResponse []GetTeacherResponse
+
+type GetDetailTeacherResponse struct {
+	ID         uuid.UUID `json:"id"`
+	Name       string    `json:"name"`
+	Email      string    `json:"email"`
+	IsVerified bool      `json:"is_verified"`
+	CreateAt   int64     `json:"created_at"`
+	UpdateAt   int64     `json:"updated_at"`
 }

@@ -52,8 +52,13 @@ type Meta struct {
 	Order      map[string]interface{} `json:"order"`
 }
 
-func NewMetaFromQuery(query Query, totalData int) *Meta {
-	return &Meta{
+type HttpQuery interface {
+	Get() (Query, map[string]interface{})
+}
+
+func NewMetaFromQuery(httpQuery HttpQuery, totalData int) *Meta {
+	query, filter := httpQuery.Get()
+	m := &Meta{
 		Pagination: PaginationResponse{
 			PageNum:   query.PageNum,
 			PageSize:  query.PageSize,
@@ -71,4 +76,12 @@ func NewMetaFromQuery(query Query, totalData int) *Meta {
 			"order_by": query.OrderBy,
 		},
 	}
+
+	if filter != nil {
+		for k, v := range filter {
+			m.Filter[k] = v
+		}
+	}
+
+	return m
 }

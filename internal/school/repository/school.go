@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog/log"
@@ -94,4 +95,37 @@ func (r *repository) GetSchoolRoleByUserIDAndSchoolID(ctx context.Context, userI
 		return nil, err
 	}
 	return &schoolRole, nil
+}
+
+func (r *repository) DeleteSchool(ctx context.Context, schoolID uuid.UUID) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	defer func(tx *sqlx.Tx) {
+		err := tx.Rollback()
+		if err != nil {
+			log.Err(err).Msg("error rolling back transaction")
+		}
+	}(tx)
+
+	// Delete related records first (foreign key constraints)
+	_, err = tx.ExecContext(ctx, "DELETE FROM user_school_role WHERE school_id = $1", schoolID)
+	if err != nil {
+		return err
+	}
+
+	// Delete the school
+	_, err = tx.ExecContext(ctx, "DELETE FROM school WHERE id = $1", schoolID)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

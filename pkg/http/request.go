@@ -31,6 +31,10 @@ type Query struct {
 	DateRange
 }
 
+func (q Query) Get() (Query, map[string]interface{}) {
+	return q, nil
+}
+
 func DefaultQuery() Query {
 	return Query{
 		SearchQuery: SearchQuery{

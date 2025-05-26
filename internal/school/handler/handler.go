@@ -4,10 +4,11 @@ import (
 	"enuma-elish/internal/school/service"
 	"enuma-elish/internal/school/service/data/request"
 	commonHttp "enuma-elish/pkg/http"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
-	"net/http"
 )
 
 type Handler struct {
@@ -113,6 +114,32 @@ func (h *Handler) SwitchSchool(c *gin.Context) {
 		SetCode(http.StatusOK).
 		SetMessage("switch school success").
 		SetData(gin.H{"access_token": token})
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) DeleteSchool(c *gin.Context) {
+	schoolIDStr := c.Param("school_id")
+	schoolID, err := uuid.Parse(schoolIDStr)
+	if err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	err = h.service.DeleteSchool(c.Request.Context(), schoolID)
+	if err != nil {
+		response := commonHttp.NewResponse().
+			SetCode(http.StatusInternalServerError).
+			SetMessage("delete school error").
+			SetErrors([]error{err})
+
+		c.JSON(response.Code, response)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("delete school success")
 
 	c.JSON(http.StatusOK, response)
 }

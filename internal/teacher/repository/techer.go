@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"enuma-elish/internal/teacher/service/data/request"
+	"enuma-elish/pkg/jwt"
 	"fmt"
 	"time"
 
@@ -37,6 +38,14 @@ type UserSchoolRole struct {
 	UserID    uuid.UUID `db:"user_id"`
 	SchoolID  uuid.UUID `db:"school_id"`
 	RoleID    uuid.UUID `db:"role_id"`
+	CreatedAt int64     `db:"created_at"`
+	UpdatedAt int64     `db:"updated_at"`
+}
+
+type Subject struct {
+	ID        uuid.UUID `db:"id"`
+	Name      string    `db:"name"`
+	SchoolID  uuid.UUID `db:"school_id"`
 	CreatedAt int64     `db:"created_at"`
 	UpdatedAt int64     `db:"updated_at"`
 }
@@ -130,10 +139,18 @@ func (r *repository) GetListTeachers(ctx context.Context, httpQuery request.GetL
 	filterQuery += " AND user_school_role.school_id = ? AND user_school_role.role_id = ? "
 
 	if httpQuery.Search != "" {
+		first := false
 		for _, v := range httpQuery.SearchBy {
-			filterQuery += fmt.Sprintf(" OR %s LIKE ? ", v)
-			filterParams = append(filterParams, httpQuery.Search)
+			if !first {
+				filterQuery += " AND ("
+				first = true
+			} else {
+				filterQuery += " OR "
+			}
+			filterQuery += fmt.Sprintf(" %s LIKE ? ", v)
+			filterParams = append(filterParams, "%"+httpQuery.Search+"%")
 		}
+		filterQuery += " ) "
 	}
 
 	if httpQuery.StartDate > 0 && httpQuery.EndDate > 0 {
@@ -301,4 +318,26 @@ func (r *repository) UpdateTeacherClass(ctx context.Context, teacherID, oldClass
 	committed = true
 
 	return nil
+}
+
+func (r *repository) GetTeacherSubjects(ctx context.Context, teacherID uuid.UUID) ([]Subject, error) {
+
+	payload, err := jwt.ExtractContext(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to extract JWT payload from context")
+		return nil, err
+	}
+	query := `
+		SELECT s.id, s.name, s.school_id, s.created_at, s.updated_at
+		FROM subject s
+		INNER JOIN teacher_subject ts ON s.id = ts.subject_id
+		WHERE ts.teacher_id = $1 AND s.school_id = $2
+	`
+	var subjects []Subject
+	fmt.Println("teacherID:", teacherID, "schoolID:", payload.User.SchoolID)
+	err = r.db.SelectContext(ctx, &subjects, query, teacherID, payload.User.SchoolID)
+	if err != nil {
+		return nil, err
+	}
+	return subjects, nil
 }

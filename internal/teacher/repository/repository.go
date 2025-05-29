@@ -22,6 +22,7 @@ type Repository interface {
 	DeleteTeacher(ctx context.Context, teacherID uuid.UUID, schoolID uuid.UUID) error
 	GetTeacherByID(ctx context.Context, teacherID uuid.UUID) (*User, error)
 	UpdateTeacherClass(ctx context.Context, teacherID, oldClassID, newClassID uuid.UUID) error
+	GetTeacherSubjects(ctx context.Context, teacherID uuid.UUID) ([]Subject, error)
 }
 
 type repository struct {

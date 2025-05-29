@@ -233,3 +233,30 @@ func (h *Handler) UpdateTeacherClass(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 }
+
+func (h *Handler) GetTeacherSubjects(c *gin.Context) {
+	teacherIDStr := c.Param("teacher_id")
+	teacherID, err := uuid.Parse(teacherIDStr)
+	if err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	subjects, err := h.service.GetTeacherSubjects(c.Request.Context(), teacherID)
+	if err != nil {
+		response := commonHttp.NewResponse().
+			SetCode(http.StatusInternalServerError).
+			SetMessage("get teacher subjects error").
+			SetErrors([]error{err})
+
+		c.JSON(response.Code, response)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("get teacher subjects success").
+		SetData(subjects)
+
+	c.JSON(http.StatusOK, response)
+}

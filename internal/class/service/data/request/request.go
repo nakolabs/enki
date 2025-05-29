@@ -17,5 +17,5 @@ type UpdateClassRequest struct {
 
 type GetListClassQuery struct {
 	commonHttp.Query
-	SchoolID uuid.UUID `form:"school_id" validate:"required"`
+	SchoolID string `form:"school_id" validate:"required", binding:"uuid"`
 }

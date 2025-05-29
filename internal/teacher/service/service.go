@@ -19,6 +19,7 @@ type Service interface {
 	DeleteTeacher(ctx context.Context, teacherID uuid.UUID, schoolID uuid.UUID) error
 	GetDetailTeacher(ctx context.Context, teacherID uuid.UUID) (response.GetDetailTeacherResponse, error)
 	UpdateTeacherClass(ctx context.Context, data request.UpdateTeacherClassRequest) error
+	GetTeacherSubjects(ctx context.Context, teacherID uuid.UUID) ([]response.Subject, error)
 }
 
 type service struct {

@@ -194,3 +194,21 @@ func (s *service) UpdateTeacherClass(ctx context.Context, data request.UpdateTea
 	}
 	return nil
 }
+
+func (s *service) GetTeacherSubjects(ctx context.Context, teacherID uuid.UUID) ([]response.Subject, error) {
+	subjects, err := s.repository.GetTeacherSubjects(ctx, teacherID)
+	if err != nil {
+		return nil, err
+	}
+	res := make([]response.Subject, len(subjects))
+	for i, subject := range subjects {
+		res[i] = response.Subject{
+			ID:        subject.ID,
+			Name:      subject.Name,
+			SchoolID:  subject.SchoolID,
+			CreatedAt: subject.CreatedAt,
+			UpdatedAt: subject.UpdatedAt,
+		}
+	}
+	return res, nil
+}

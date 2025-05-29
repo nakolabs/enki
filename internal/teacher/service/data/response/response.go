@@ -23,3 +23,11 @@ type GetDetailTeacherResponse struct {
 	CreateAt   int64     `json:"created_at"`
 	UpdateAt   int64     `json:"updated_at"`
 }
+
+type Subject struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	SchoolID  uuid.UUID `json:"school_id"`
+	CreatedAt int64     `json:"created_at"`
+	UpdatedAt int64     `json:"updated_at"`
+}

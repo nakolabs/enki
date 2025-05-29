@@ -20,7 +20,7 @@ type Subject struct {
 
 type TeacherSubject struct {
 	ID        uuid.UUID `db:"id"`
-	TeacherID uuid.UUID `db:"techer_id"`
+	TeacherID uuid.UUID `db:"teacher_id"`
 	SubjectID uuid.UUID `db:"subject_id"`
 	CreatedAt int64     `db:"created_at"`
 	UpdatedAt int64     `db:"updated_at"`
@@ -156,9 +156,9 @@ func (r *repository) AssignTeachersToSubject(ctx context.Context, subjectID uuid
 		})
 	}
 
-	insertQuery := `INSERT INTO techer_subject (id, techer_id, subject_id, created_at, updated_at) 
-					VALUES (:id, :techer_id, :subject_id, :created_at, :updated_at) 
-					ON CONFLICT (techer_id, subject_id) DO NOTHING`
+	insertQuery := `INSERT INTO teacher_subject (id, teacher_id, subject_id, created_at, updated_at) 
+					VALUES (:id, :teacher_id, :subject_id, :created_at, :updated_at) 
+					ON CONFLICT (teacher_id, subject_id) DO NOTHING`
 
 	_, err = tx.NamedExecContext(ctx, insertQuery, teacherSubjects)
 	if err != nil {
@@ -178,14 +178,14 @@ func (r *repository) GetTeachersBySubjectID(ctx context.Context, subjectID uuid.
 	baseQuery := `
 		SELECT u.id, u.name, u.email, u.is_verified, u.created_at, u.updated_at
 		FROM users u
-		INNER JOIN techer_subject ts ON u.id = ts.techer_id
+		INNER JOIN teacher_subject ts ON u.id = ts.teacher_id
 		WHERE ts.subject_id = $1
 	`
 
 	countQuery := `
 		SELECT COUNT(*)
 		FROM users u
-		INNER JOIN techer_subject ts ON u.id = ts.techer_id
+		INNER JOIN teacher_subject ts ON u.id = ts.teacher_id
 		WHERE ts.subject_id = $1
 	`
 

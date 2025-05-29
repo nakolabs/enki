@@ -3,14 +3,16 @@ package service
 import (
 	"context"
 	"database/sql"
+	"enuma-elish/internal/auth/repository"
 	"enuma-elish/internal/auth/service/data/request"
 	"enuma-elish/internal/auth/service/data/response"
 	commonError "enuma-elish/pkg/error"
 	"enuma-elish/pkg/jwt"
 	"errors"
+	"time"
+
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
-	"time"
 )
 
 func (s *service) Login(ctx context.Context, data request.LoginRequest) (*response.LoginResponse, error) {
@@ -31,6 +33,10 @@ func (s *service) Login(ctx context.Context, data request.LoginRequest) (*respon
 	userSchoolRole, err := s.repository.GetFirstUserSchoolRolByUserID(ctx, user.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.Err(err).Str("email", data.Email).Msg("failed to get user first user")
+	}
+
+	if errors.Is(err, sql.ErrNoRows) {
+		userSchoolRole = &repository.UserSchoolRole{}
 	}
 
 	now := time.Now()

@@ -139,7 +139,7 @@ func (s *service) GetListExams(ctx context.Context, query request.GetListExamQue
 		return response.GetListExamResponse{}, nil, err
 	}
 
-	var res response.GetListExamResponse
+	res := response.GetListExamResponse{}
 	for _, exam := range exams {
 		res = append(res, response.ExamResponse{
 			ID:          exam.ID,

@@ -8,6 +8,7 @@ import (
 	"enuma-elish/internal/question/service/data/request"
 	"enuma-elish/internal/question/service/data/response"
 	commonHttp "enuma-elish/pkg/http"
+	"enuma-elish/pkg/jwt"
 	"time"
 
 	"github.com/google/uuid"
@@ -114,13 +115,21 @@ func (s *service) GetDetailQuestion(ctx context.Context, questionID uuid.UUID) (
 }
 
 func (s *service) GetListQuestions(ctx context.Context, query request.GetListQuestionQuery) (response.GetListQuestionResponse, *commonHttp.Meta, error) {
+	if query.SchoolID == "" {
+		claim, err := jwt.ExtractContext(ctx)
+		if err != nil {
+			log.Err(err).Msg("Failed to extract JWT claim")
+			return response.GetListQuestionResponse{}, nil, err
+		}
+		query.SchoolID = claim.User.SchoolID.String()
+	}
 	questions, total, err := s.repository.GetListQuestions(ctx, query)
 	if err != nil {
 		log.Err(err).Msg("Failed to get question list")
 		return response.GetListQuestionResponse{}, nil, err
 	}
 
-	var res response.GetListQuestionResponse
+	res := response.GetListQuestionResponse{}
 	for _, question := range questions {
 		var options []response.QuestionOptionResponse
 		if question.QuestionType == "multiple_choice" && question.Options != nil {

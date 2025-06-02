@@ -4,10 +4,11 @@ import (
 	"enuma-elish/internal/auth/service"
 	"enuma-elish/internal/auth/service/data/request"
 	commonHttp "enuma-elish/pkg/http"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/rs/zerolog/log"
-	"net/http"
 )
 
 type Handler struct {
@@ -188,6 +189,48 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 	response := commonHttp.NewResponse().
 		SetCode(http.StatusOK).
 		SetMessage("refresh token success").
+		SetData(data)
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) UpdateProfile(c *gin.Context) {
+	req := request.UpdateProfileRequest{}
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	data, err := h.service.UpdateProfile(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("update profile success").
+		SetData(data)
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) Profile(c *gin.Context) {
+	data, err := h.service.Profile(c.Request.Context())
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("profile success").
 		SetData(data)
 
 	c.JSON(http.StatusOK, response)

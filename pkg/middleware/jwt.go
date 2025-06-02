@@ -4,9 +4,10 @@ import (
 	"context"
 	commonHttp "enuma-elish/pkg/http"
 	"enuma-elish/pkg/jwt"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 func Auth(secret string) gin.HandlerFunc {

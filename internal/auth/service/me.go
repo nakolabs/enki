@@ -4,10 +4,11 @@ import (
 	"context"
 	"enuma-elish/internal/auth/service/data/response"
 	"enuma-elish/pkg/jwt"
+
 	"github.com/rs/zerolog/log"
 )
 
-func (s *service) Me(ctx context.Context) (*response.ProfileResponse, error) {
+func (s *service) Me(ctx context.Context) (*response.UserResponse, error) {
 	claims, err := jwt.ExtractContext(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to extract claims")
@@ -20,7 +21,7 @@ func (s *service) Me(ctx context.Context) (*response.ProfileResponse, error) {
 		return nil, err
 	}
 
-	result := response.ProfileResponse{
+	result := response.UserResponse{
 		ID:        u.ID,
 		Name:      u.Name,
 		Email:     u.Email,

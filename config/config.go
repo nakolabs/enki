@@ -60,14 +60,22 @@ type Telemetry struct {
 	SecureMode       bool   `json:"secure_mode"`
 }
 
+type Cloudinary struct {
+	CloudName string `json:"cloud_name"`
+	APIKey    string `json:"api_key"`
+	APISecret string `json:"api_secret"`
+	Folder    string `json:"folder"`
+}
+
 type Config struct {
-	App       App       `json:"app"`
-	Http      Http      `json:"http"`
-	Postgres  Postgres  `json:"postgres"`
-	JWT       JWT       `json:"jwt"`
-	Redis     Redis     `json:"redis"`
-	SMTP      SMTP      `json:"smtp"`
-	Telemetry Telemetry `json:"telemetry"`
+	App        App        `json:"app"`
+	Http       Http       `json:"http"`
+	Postgres   Postgres   `json:"postgres"`
+	JWT        JWT        `json:"jwt"`
+	Redis      Redis      `json:"redis"`
+	SMTP       SMTP       `json:"smtp"`
+	Cloudinary Cloudinary `json:"cloudinary"`
+	Telemetry  Telemetry  `json:"telemetry"`
 }
 
 func New(path string) (*Config, error) {

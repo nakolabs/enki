@@ -10,6 +10,7 @@ import (
 	"enuma-elish/internal/ppdb"
 	"enuma-elish/internal/question"
 	"enuma-elish/internal/school"
+	"enuma-elish/internal/storage"
 	"enuma-elish/internal/student"
 	"enuma-elish/internal/subject"
 	"enuma-elish/internal/teacher"
@@ -61,6 +62,7 @@ func New(c *config.Config, infra *infra.Infra) *API {
 	exam.New(api.config, api.infra, api.Engine, validate).Init()
 	question.New(api.config, api.infra, api.Engine, validate).Init()
 	ppdb.New(api.config, api.infra, api.Engine, validate).Init()
+	storage.New(api.config, api.infra, api.Engine, validate).Init()
 
 	return api
 }

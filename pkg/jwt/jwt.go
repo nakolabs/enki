@@ -3,10 +3,11 @@ package jwt
 import (
 	"context"
 	commonError "enuma-elish/pkg/error"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 	"net/http"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 const ContextKey = "JWT"

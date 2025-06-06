@@ -1,0 +1,12 @@
+ALTER TABLE school 
+DROP COLUMN description,
+DROP COLUMN address,
+DROP COLUMN city,
+DROP COLUMN province,
+DROP COLUMN postal_code,
+DROP COLUMN phone,
+DROP COLUMN email,
+DROP COLUMN website,
+DROP COLUMN logo,
+DROP COLUMN banner,
+DROP COLUMN established_year;

@@ -143,3 +143,35 @@ func (h *Handler) DeleteSchool(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response)
 }
+
+func (h *Handler) UpdateSchoolProfile(c *gin.Context) {
+	schoolIDParam := c.Param("school_id")
+	schoolID, err := uuid.Parse(schoolIDParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid school ID"})
+		return
+	}
+
+	var req request.UpdateSchoolProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	school, err := h.service.UpdateSchoolProfile(c.Request.Context(), schoolID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    http.StatusOK,
+		"message": "School profile updated successfully",
+		"data":    school,
+	})
+}

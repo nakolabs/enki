@@ -91,7 +91,7 @@ func (s *service) SwitchSchool(ctx context.Context, schoolID uuid.UUID) (string,
 		return "", err
 	}
 
-	userSchoolRole, err := s.repository.GetSchoolRoleByUserIDAndSchoolID(ctx, schoolID, claim.User.ID)
+	userSchoolRole, err := s.repository.GetSchoolRoleByUserIDAndSchoolID(ctx, claim.User.ID, schoolID)
 	if err != nil {
 		log.Err(err).Msg("error getting school role")
 		return "", err
@@ -132,4 +132,43 @@ func (s *service) DeleteSchool(ctx context.Context, schoolID uuid.UUID) error {
 		return err
 	}
 	return nil
+}
+
+func (s *service) UpdateSchoolProfile(ctx context.Context, schoolID uuid.UUID, data request.UpdateSchoolProfileRequest) (response.DetailSchool, error) {
+	school := repository.School{
+		Name:        data.Name,
+		Level:       data.Level,
+		Description: data.Description,
+		Address:     data.Address,
+		City:        data.City,
+		Province:    data.Province,
+		PostalCode:  data.PostalCode,
+		Phone:       data.Phone,
+		Email:       data.Email,
+		Website:     data.Website,
+		Logo:        data.Logo,
+	}
+
+	updatedSchool, err := s.repository.UpdateSchoolProfile(ctx, schoolID, school)
+	if err != nil {
+		log.Err(err).Msg("error updating school profile")
+		return response.DetailSchool{}, err
+	}
+
+	return response.DetailSchool{
+		ID:          updatedSchool.ID,
+		Name:        updatedSchool.Name,
+		Level:       updatedSchool.Level,
+		Description: updatedSchool.Description,
+		Address:     updatedSchool.Address,
+		City:        updatedSchool.City,
+		Province:    updatedSchool.Province,
+		PostalCode:  updatedSchool.PostalCode,
+		Phone:       updatedSchool.Phone,
+		Email:       updatedSchool.Email,
+		Website:     updatedSchool.Website,
+		Logo:        updatedSchool.Logo,
+		CreatedAt:   updatedSchool.CreatedAt,
+		UpdatedAt:   updatedSchool.UpdatedAt,
+	}, nil
 }

@@ -13,6 +13,7 @@ type Repository interface {
 	GetListSchool(ctx context.Context, userID uuid.UUID) ([]School, error)
 	GetSchoolRoleByUserIDAndSchoolID(ctx context.Context, userID uuid.UUID, schoolID uuid.UUID) (*UserSchoolRole, error)
 	DeleteSchool(ctx context.Context, schoolID uuid.UUID) error
+	UpdateSchoolProfile(ctx context.Context, schoolID uuid.UUID, school School) (*School, error)
 }
 
 type repository struct {

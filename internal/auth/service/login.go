@@ -30,13 +30,17 @@ func (s *service) Login(ctx context.Context, data request.LoginRequest) (*respon
 		return nil, commonError.ErrInvalidPassword
 	}
 
-	userSchoolRole, err := s.repository.GetFirstUserSchoolRolByUserID(ctx, user.ID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		log.Err(err).Str("email", data.Email).Msg("failed to get user first user")
-	}
+	userSchoolRole := &repository.UserSchoolRole{}
+	userSchoolRole, err = s.repository.GetFirstUserSchoolRoleByUserID(ctx, user.ID)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			log.Err(err).Str("email", data.Email).Msg("failed to get user first user")
+			return nil, err
+		}
 
-	if errors.Is(err, sql.ErrNoRows) {
-		userSchoolRole = &repository.UserSchoolRole{}
+		if user.Role != repository.SuperAdmin {
+			return nil, commonError.ErrUserNotFound
+		}
 	}
 
 	now := time.Now()
@@ -51,10 +55,11 @@ func (s *service) Login(ctx context.Context, data request.LoginRequest) (*respon
 		Sub: user.ID.String(),
 		Aud: "genesis",
 		User: jwt.User{
-			ID:       user.ID,
-			Email:    user.Email,
-			SchoolID: userSchoolRole.SchoolID,
-			RoleID:   userSchoolRole.RoleID,
+			ID:         user.ID,
+			Email:      user.Email,
+			SchoolID:   userSchoolRole.SchoolID,
+			SchoolRole: userSchoolRole.RoleID,
+			UserRole:   user.Role,
 		},
 	}
 

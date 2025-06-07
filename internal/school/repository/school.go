@@ -32,7 +32,7 @@ type UserSchoolRole struct {
 	ID        uuid.UUID `db:"id"`
 	UserID    uuid.UUID `db:"user_id"`
 	SchoolID  uuid.UUID `db:"school_id"`
-	RoleID    uuid.UUID `db:"role_id"`
+	RoleID    string    `db:"role_id"`
 	CreatedAt int64     `db:"created_at"`
 	UpdatedAt int64     `db:"updated_at"`
 }
@@ -56,16 +56,10 @@ func (r *repository) CreateSchool(ctx context.Context, userID uuid.UUID, school 
 		return err
 	}
 
-	adminRoleID := uuid.UUID{}
-	err = tx.GetContext(ctx, &adminRoleID, `SELECT id FROM role WHERE name = 'admin'`)
-	if err != nil {
-		return err
-	}
-
 	adminSchoolRole := UserSchoolRole{
 		UserID:   userID,
 		SchoolID: school.ID,
-		RoleID:   adminRoleID,
+		RoleID:   "admin",
 	}
 
 	_, err = tx.NamedExecContext(ctx, `INSERT INTO user_school_role (user_id, school_id, role_id) VALUES (:user_id, :school_id, :role_id)`, adminSchoolRole)

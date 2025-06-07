@@ -42,6 +42,5 @@ func (a *Auth) Init() {
 	v1.POST("/refresh-token", h.RefreshToken)
 
 	v1.GET("/me", middleware.Auth(a.c.JWT.Secret), h.Me)
-	v1.GET("/profile", middleware.Auth(a.c.JWT.Secret), h.Profile)
-	v1.PUT("/profile", middleware.Auth(a.c.JWT.Secret), h.UpdateProfile)
+	v1.PUT("/me", middleware.Auth(a.c.JWT.Secret), h.UpdateUser)
 }

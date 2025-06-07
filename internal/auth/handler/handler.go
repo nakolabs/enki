@@ -194,8 +194,8 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-func (h *Handler) UpdateProfile(c *gin.Context) {
-	req := request.UpdateProfileRequest{}
+func (h *Handler) UpdateUser(c *gin.Context) {
+	req := request.UpdateUserRequest{}
 	err := c.ShouldBindJSON(&req)
 	if err != nil {
 		c.Error(err).SetType(gin.ErrorTypeBind)
@@ -207,7 +207,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	data, err := h.service.UpdateProfile(c.Request.Context(), req)
+	data, err := h.service.UpdateUser(c.Request.Context(), req)
 	if err != nil {
 		c.Error(err)
 		return
@@ -216,21 +216,6 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 	response := commonHttp.NewResponse().
 		SetCode(http.StatusOK).
 		SetMessage("update profile success").
-		SetData(data)
-
-	c.JSON(http.StatusOK, response)
-}
-
-func (h *Handler) Profile(c *gin.Context) {
-	data, err := h.service.Profile(c.Request.Context())
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	response := commonHttp.NewResponse().
-		SetCode(http.StatusOK).
-		SetMessage("profile success").
 		SetData(data)
 
 	c.JSON(http.StatusOK, response)

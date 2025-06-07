@@ -2,21 +2,38 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"time"
+
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"time"
 )
 
 type User struct {
-	ID         uuid.UUID `db:"id"`
-	Email      string    `db:"email"`
-	Name       string    `db:"name"`
-	Password   string    `db:"password"`
-	IsVerified bool      `db:"is_verified"`
-	CreatedAt  int64     `db:"created_at"`
-	UpdatedAt  int64     `db:"updated_at"`
+	ID          uuid.UUID      `db:"id"`
+	Email       string         `db:"email"`
+	Name        string         `db:"name"`
+	Password    string         `db:"password"`
+	IsVerified  bool           `db:"is_verified"`
+	Role        string         `db:"role"`
+	Phone       string         `db:"phone"`
+	DateOfBirth string         `db:"date_of_birth"`
+	Gender      string         `db:"gender"`
+	Address     string         `db:"address"`
+	City        string         `db:"city"`
+	Country     string         `db:"country"`
+	Avatar      string         `db:"avatar"`
+	Bio         string         `db:"bio"`
+	ParentName  string         `db:"parent_name"`
+	ParentPhone string         `db:"parent_phone"`
+	ParentEmail string         `db:"parent_email"`
+	IsDeleted   bool           `db:"is_deleted"`
+	CreatedAt   int64          `db:"created_at"`
+	UpdatedAt   int64          `db:"updated_at"`
+	DeletedAt   int64          `db:"deleted_at"`
+	DeletedBy   sql.NullString `db:"deleted_by"`
 }
 
 type UserVerifyEmailToken struct {
@@ -25,6 +42,7 @@ type UserVerifyEmailToken struct {
 	Name     string `json:"name"`
 	Username string `json:"username"`
 	Password string `json:"password"`
+	Role     string `json:"role"`
 }
 
 type UserForgotPasswordToken struct {
@@ -59,7 +77,7 @@ func (r *repository) GetUserByEmail(ctx context.Context, email string) (*User, e
 }
 
 func (r *repository) CreateUser(ctx context.Context, u *User) error {
-	_, err := r.db.NamedExecContext(ctx, `INSERT INTO users (email, name, password, is_verified) VALUES (:email, :name, :password, :is_verified)`, u)
+	_, err := r.db.NamedExecContext(ctx, `INSERT INTO users (email, name, password, is_verified, role) VALUES (:email, :name, :password, :is_verified, :role)`, u)
 	if err != nil {
 		return err
 	}

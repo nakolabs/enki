@@ -1,6 +1,5 @@
-CREATE TABLE storage_log (
+CREATE TABLE storage (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
     public_id VARCHAR(255) NOT NULL,
     original_filename VARCHAR(255) NOT NULL,
     file_type VARCHAR(50) NOT NULL,
@@ -19,16 +18,17 @@ CREATE TABLE storage_log (
                 now()
         ) * 1000
     ) :: BIGINT,
-    updated_at BIGINT NOT NULL DEFAULT 0
+    created_by UUID NOT NULL REFERENCES users(id),
+    updated_at BIGINT NOT NULL DEFAULT 0,
+    updated_by UUID NOT NULL REFERENCES users(id),
+    deleted_at BIGINT DEFAULT 0,
+    deleted_by UUID DEFAULT NULL REFERENCES users(id)
 );
 
 -- Add indexes
-CREATE INDEX idx_storage_log_user_id ON storage_log(user_id);
-CREATE INDEX idx_storage_log_public_id ON storage_log(public_id);
-CREATE INDEX idx_storage_log_file_type ON storage_log(file_type);
-CREATE INDEX idx_storage_log_created_at ON storage_log(created_at);
 
--- Add foreign key constraint
-ALTER TABLE storage_log 
-ADD CONSTRAINT fk_storage_log_user_id 
-FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+CREATE INDEX idx_storage_public_id ON storage(public_id);
+
+CREATE INDEX idx_storage_file_type ON storage(file_type);
+
+CREATE INDEX idx_storage_created_at ON storage(created_at);

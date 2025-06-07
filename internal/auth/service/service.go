@@ -2,11 +2,15 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"enuma-elish/config"
 	"enuma-elish/internal/auth/repository"
 	"enuma-elish/internal/auth/service/data/request"
 	"enuma-elish/internal/auth/service/data/response"
+	commonError "enuma-elish/pkg/error"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -16,11 +20,10 @@ type Service interface {
 	Login(ctx context.Context, data request.LoginRequest) (*response.LoginResponse, error)
 	VerifyEmail(ctx context.Context, data request.VerifyEmailRequest) error
 	Me(ctx context.Context) (*response.UserResponse, error)
-	Profile(ctx context.Context) (*response.UserProfileResponse, error)
 	ForgotPassword(ctx context.Context, data request.ForgotPasswordRequest) error
 	ForgotPasswordVerify(ctx context.Context, data request.ForgotPasswordVerifyRequest) error
 	RefreshToken(ctx context.Context, data request.RefreshTokenRequest) (*response.LoginResponse, error)
-	UpdateProfile(ctx context.Context, data request.UpdateProfileRequest) (*response.ProfileResponse, error)
+	UpdateUser(ctx context.Context, data request.UpdateUserRequest) (*response.UserResponse, error)
 }
 
 type service struct {
@@ -35,7 +38,7 @@ func New(r repository.Repository, c *config.Config) Service {
 	}
 }
 
-func (s *service) UpdateProfile(ctx context.Context, data request.UpdateProfileRequest) (*response.ProfileResponse, error) {
+func (s *service) UpdateUser(ctx context.Context, data request.UpdateUserRequest) (*response.UserResponse, error) {
 	// Get user ID from middleware context
 	userIDFromCtx := ctx.Value("user_id")
 	if userIDFromCtx == nil {
@@ -48,79 +51,65 @@ func (s *service) UpdateProfile(ctx context.Context, data request.UpdateProfileR
 	}
 
 	// Try to get existing profile, if not found create a new one
-	profile, err := s.repository.GetProfileByUserID(ctx, userID)
+	user, err := s.repository.GetUserByID(ctx, userID)
 	if err != nil {
-		// Profile doesn't exist, create new one with provided data
-		profile = &repository.Profile{
-			UserID:      userID,
-			FirstName:   data.FirstName,
-			LastName:    data.LastName,
-			Phone:       data.Phone,
-			DateOfBirth: data.DateOfBirth,
-			Gender:      data.Gender,
-			Address:     data.Address,
-			City:        data.City,
-			Country:     data.Country,
-			Avatar:      data.Avatar,
-			Bio:         data.Bio,
-			ParentName:  data.ParentName,
-			ParentPhone: data.ParentPhone,
-			ParentEmail: data.ParentEmail,
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, commonError.ErrUserNotFound
 		}
-	} else {
-		// Profile exists, update only provided fields
-		if data.FirstName != nil {
-			profile.FirstName = data.FirstName
-		}
-		if data.LastName != nil {
-			profile.LastName = data.LastName
-		}
-		if data.Phone != nil {
-			profile.Phone = data.Phone
-		}
-		if data.DateOfBirth != nil {
-			profile.DateOfBirth = data.DateOfBirth
-		}
-		if data.Gender != nil {
-			profile.Gender = data.Gender
-		}
-		if data.Address != nil {
-			profile.Address = data.Address
-		}
-		if data.City != nil {
-			profile.City = data.City
-		}
-		if data.Country != nil {
-			profile.Country = data.Country
-		}
-		if data.Avatar != nil {
-			profile.Avatar = data.Avatar
-		}
-		if data.Bio != nil {
-			profile.Bio = data.Bio
-		}
-		if data.ParentName != nil {
-			profile.ParentName = data.ParentName
-		}
-		if data.ParentPhone != nil {
-			profile.ParentPhone = data.ParentPhone
-		}
-		if data.ParentEmail != nil {
-			profile.ParentEmail = data.ParentEmail
-		}
+		return nil, err
 	}
 
+	if data.Email != "" {
+		user.Email = data.Email
+	}
+	if data.Name != "" {
+		user.Name = data.Name
+	}
+	if data.Phone != "" {
+		user.Phone = data.Phone
+	}
+	if data.DateOfBirth != "" {
+		user.DateOfBirth = data.DateOfBirth
+	}
+	if data.Gender != "" {
+		user.Gender = data.Gender
+	}
+	if data.Address != "" {
+		user.Address = data.Address
+	}
+	if data.City != "" {
+		user.City = data.City
+	}
+	if data.Country != "" {
+		user.Country = data.Country
+	}
+	if data.Avatar != "" {
+		user.Avatar = data.Avatar
+	}
+	if data.Bio != "" {
+		user.Bio = data.Bio
+	}
+	if data.ParentName != "" {
+		user.ParentName = data.ParentName
+	}
+	if data.ParentPhone != "" {
+		user.ParentPhone = data.ParentPhone
+	}
+	if data.ParentEmail != "" {
+		user.ParentEmail = data.ParentEmail
+	}
+	user.UpdatedAt = time.Now().UnixMilli()
+
 	// Update/Create profile in database
-	updatedProfile, err := s.repository.UpdateProfile(ctx, userID, profile)
+	updatedProfile, err := s.repository.UpdateUser(ctx, user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update profile: %w", err)
 	}
 
-	return &response.ProfileResponse{
-		ID:          updatedProfile.ID.String(),
-		UserID:      updatedProfile.UserID.String(),
-		FirstName:   updatedProfile.FirstName,
-		LastName:    updatedProfile.LastName,
+	return &response.UserResponse{
+		ID:          updatedProfile.ID,
+		Email:       updatedProfile.Email,
+		Name:        updatedProfile.Name,
 		Phone:       updatedProfile.Phone,
 		DateOfBirth: updatedProfile.DateOfBirth,
 		Gender:      updatedProfile.Gender,
@@ -134,10 +123,12 @@ func (s *service) UpdateProfile(ctx context.Context, data request.UpdateProfileR
 		ParentEmail: updatedProfile.ParentEmail,
 		CreatedAt:   updatedProfile.CreatedAt,
 		UpdatedAt:   updatedProfile.UpdatedAt,
+		DeletedAt:   updatedProfile.DeletedAt,
+		DeletedBy:   updatedProfile.DeletedBy.String,
 	}, nil
 }
 
-func (s *service) Profile(ctx context.Context) (*response.UserProfileResponse, error) {
+func (s *service) Me(ctx context.Context) (*response.UserResponse, error) {
 	// Get user ID from middleware context
 	userIDFromCtx := ctx.Value("user_id")
 	if userIDFromCtx == nil {
@@ -155,40 +146,25 @@ func (s *service) Profile(ctx context.Context) (*response.UserProfileResponse, e
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	// Get profile data (might not exist)
-	profile, err := s.repository.GetProfileByUserID(ctx, userID)
-	var profileData *response.ProfileResponse
-	if err == nil {
-		// Profile exists, map it to response
-		profileData = &response.ProfileResponse{
-			ID:          profile.ID.String(),
-			UserID:      profile.UserID.String(),
-			FirstName:   profile.FirstName,
-			LastName:    profile.LastName,
-			Phone:       profile.Phone,
-			DateOfBirth: profile.DateOfBirth,
-			Gender:      profile.Gender,
-			Address:     profile.Address,
-			City:        profile.City,
-			Country:     profile.Country,
-			Avatar:      profile.Avatar,
-			Bio:         profile.Bio,
-			ParentName:  profile.ParentName,
-			ParentPhone: profile.ParentPhone,
-			ParentEmail: profile.ParentEmail,
-			CreatedAt:   profile.CreatedAt,
-			UpdatedAt:   profile.UpdatedAt,
-		}
-	}
-	// If profile doesn't exist, profileData will be nil
-
-	return &response.UserProfileResponse{
-		ID:         user.ID.String(),
-		Name:       user.Name,
-		Email:      user.Email,
-		IsVerified: user.IsVerified,
-		CreatedAt:  user.CreatedAt,
-		UpdatedAt:  user.UpdatedAt,
-		Profile:    profileData,
+	return &response.UserResponse{
+		ID:          user.ID,
+		Name:        user.Name,
+		Phone:       user.Phone,
+		DateOfBirth: user.DateOfBirth,
+		Gender:      user.Gender,
+		Address:     user.Address,
+		City:        user.City,
+		Country:     user.Country,
+		Avatar:      user.Avatar,
+		Bio:         user.Bio,
+		ParentName:  user.ParentName,
+		ParentPhone: user.ParentPhone,
+		ParentEmail: user.ParentEmail,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
+		Email:       user.Email,
+		DeletedAt:   user.DeletedAt,
+		DeletedBy:   user.DeletedBy.String,
 	}, nil
+
 }

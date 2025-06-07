@@ -17,6 +17,7 @@ type Service interface {
 	SwitchSchool(ctx context.Context, schoolID uuid.UUID) (string, error)
 	DeleteSchool(ctx context.Context, schoolID uuid.UUID) error
 	UpdateSchoolProfile(ctx context.Context, schoolID uuid.UUID, data request.UpdateSchoolProfileRequest) (response.DetailSchool, error)
+	// GetSetupSchool(ctx context.Context, userID uuid.UUID) (response.DetailSchool, error)
 }
 
 type service struct {

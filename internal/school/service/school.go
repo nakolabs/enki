@@ -109,10 +109,11 @@ func (s *service) SwitchSchool(ctx context.Context, schoolID uuid.UUID) (string,
 		Sub: claim.User.ID.String(),
 		Aud: "genesis",
 		User: jwt.User{
-			ID:       claim.User.ID,
-			Email:    claim.User.Email,
-			SchoolID: schoolID,
-			RoleID:   userSchoolRole.RoleID,
+			ID:         claim.User.ID,
+			Email:      claim.User.Email,
+			SchoolID:   schoolID,
+			SchoolRole: userSchoolRole.RoleID,
+			UserRole:   claim.User.UserRole,
 		},
 	}
 

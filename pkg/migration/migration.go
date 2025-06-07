@@ -14,6 +14,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Migration struct {
@@ -256,6 +257,15 @@ func (m *Migration) Seed() {
 		return
 	}
 
+	const defaultPassword = "genesis"
+	pass, err := bcrypt.GenerateFromPassword([]byte(defaultPassword), bcrypt.DefaultCost)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to hash default password")
+		return
+	}
+
+	fmt.Println("Using default password for seeding:", string(pass))
+
 	log.Info().Int("seed_files", len(files)).Msg("starting database seeding")
 
 	for _, file := range files {
@@ -274,7 +284,104 @@ func (m *Migration) Seed() {
 		}
 	}
 
+	// m.db.Exec()
+
 	log.Info().Int("seed_files_executed", len(files)).Msg("database seeding completed successfully")
+}
+
+func (m *Migration) Fresh() error {
+	log.Info().Msg("starting fresh migration - dropping all tables and types")
+
+	// Get all table names
+	rows, err := m.db.Query(`
+		SELECT table_name 
+		FROM information_schema.tables 
+		WHERE table_schema = 'public' 
+		AND table_type = 'BASE TABLE'
+	`)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get table names")
+		return err
+	}
+	defer rows.Close()
+
+	var tables []string
+	for rows.Next() {
+		var tableName string
+		if err := rows.Scan(&tableName); err != nil {
+			log.Error().Err(err).Msg("failed to scan table name")
+			return err
+		}
+		tables = append(tables, tableName)
+	}
+
+	// Get all custom types
+	typeRows, err := m.db.Query(`
+		SELECT typname 
+		FROM pg_type 
+		WHERE typnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+		AND typtype = 'e'
+	`)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get type names")
+		return err
+	}
+	defer typeRows.Close()
+
+	var types []string
+	for typeRows.Next() {
+		var typeName string
+		if err := typeRows.Scan(&typeName); err != nil {
+			log.Error().Err(err).Msg("failed to scan type name")
+			return err
+		}
+		types = append(types, typeName)
+	}
+
+	tx, err := m.db.Beginx()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to begin transaction")
+		return err
+	}
+	defer tx.Rollback()
+
+	// Drop all tables
+	if len(tables) > 0 {
+		for _, table := range tables {
+			log.Info().Str("table", table).Msg("dropping table")
+			_, err = tx.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s CASCADE", table))
+			if err != nil {
+				log.Error().Err(err).Str("table", table).Msg("failed to drop table")
+				return err
+			}
+		}
+		log.Info().Int("tables_dropped", len(tables)).Msg("all tables dropped successfully")
+	} else {
+		log.Info().Msg("no tables found to drop")
+	}
+
+	// Drop all custom types
+	if len(types) > 0 {
+		for _, typeName := range types {
+			log.Info().Str("type", typeName).Msg("dropping type")
+			_, err = tx.Exec(fmt.Sprintf("DROP TYPE IF EXISTS %s CASCADE", typeName))
+			if err != nil {
+				log.Error().Err(err).Str("type", typeName).Msg("failed to drop type")
+				return err
+			}
+		}
+		log.Info().Int("types_dropped", len(types)).Msg("all types dropped successfully")
+	} else {
+		log.Info().Msg("no custom types found to drop")
+	}
+
+	if err = tx.Commit(); err != nil {
+		log.Error().Err(err).Msg("failed to commit drop operation transaction")
+		return err
+	}
+
+	// Re-run migrations
+	return m.Up()
 }
 
 func (m *Migration) Command() *cobra.Command {
@@ -321,6 +428,14 @@ func (m *Migration) Command() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(create, up, down, seed)
+	fresh := &cobra.Command{
+		Use:   "fresh",
+		Short: "fresh migration",
+		Run: func(cmd *cobra.Command, args []string) {
+			m.Fresh()
+		},
+	}
+
+	cmd.AddCommand(create, up, down, seed, fresh)
 	return cmd
 }

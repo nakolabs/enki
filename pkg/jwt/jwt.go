@@ -23,10 +23,11 @@ type Payload struct {
 }
 
 type User struct {
-	ID       uuid.UUID `json:"id"`
-	Email    string    `json:"email"`
-	SchoolID uuid.UUID `json:"school_id"`
-	RoleID   uuid.UUID `json:"role_id"`
+	ID         uuid.UUID `json:"id"`
+	Email      string    `json:"email"`
+	SchoolID   uuid.UUID `json:"school_id"`
+	SchoolRole string    `json:"role"`
+	UserRole   string    `json:"user_role"`
 }
 
 func (p *Payload) GetExpirationTime() (*jwt.NumericDate, error) {

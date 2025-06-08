@@ -8,6 +8,7 @@ import (
 	"enuma-elish/internal/student/service/data/response"
 	commonError "enuma-elish/pkg/error"
 	commonHttp "enuma-elish/pkg/http"
+	"enuma-elish/pkg/jwt"
 	"fmt"
 	"net/smtp"
 	"time"
@@ -38,6 +39,12 @@ func New(repository repository.Repository, config *config.Config) Service {
 
 func (s *service) InviteStudent(ctx context.Context, data request.InviteStudentRequest) error {
 
+	claim, err := jwt.ExtractContext(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to extract claims")
+		return err
+	}
+
 	var students []repository.User
 	now := time.Now().UnixMilli()
 
@@ -49,10 +56,11 @@ func (s *service) InviteStudent(ctx context.Context, data request.InviteStudentR
 			IsVerified: false,
 			CreatedAt:  now,
 			UpdatedAt:  0,
+			CreatedBy:  claim.User.ID,
 		})
 	}
 
-	err := s.repository.CreateStudent(ctx, data.SchoolID, students)
+	err = s.repository.CreateStudent(ctx, data.SchoolID, students)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create student")
 		return err
@@ -65,7 +73,7 @@ func (s *service) InviteStudent(ctx context.Context, data request.InviteStudentR
 				log.Err(err).Str("email", v.Email).Msg("create student verify token")
 			}
 
-			link := fmt.Sprintf("%s/email-verification?email=%s&token=%s", s.config.Http.FrontendHost, v.Email, token)
+			link := fmt.Sprintf("%s/email-verification?email=%s&token=%s&type=invite_student", s.config.Http.FrontendHost, v.Email, token)
 			err = s.sendEmail(v.Email, link, "Email Verification")
 			if err != nil {
 				log.Err(err).Str("email", v.Email).Msg("send email")
@@ -103,9 +111,9 @@ func (s *service) UpdateStudentAfterVerifyEmail(ctx context.Context, data reques
 		return commonError.ErrInvalidToken
 	}
 
-	teacher, err := s.repository.GetStudentByEmail(ctx, data.Email)
+	student, err := s.repository.GetStudentByEmail(ctx, data.Email)
 	if err != nil {
-		log.Err(err).Msg("Failed to get teacher")
+		log.Err(err).Msg("Failed to get student")
 		return commonError.ErrUserNotFound
 	}
 
@@ -115,8 +123,8 @@ func (s *service) UpdateStudentAfterVerifyEmail(ctx context.Context, data reques
 		return err
 	}
 
-	teacher = &repository.User{
-		ID:         teacher.ID,
+	student = &repository.User{
+		ID:         student.ID,
 		Name:       data.Name,
 		Email:      data.Email,
 		Password:   hashPass,
@@ -124,9 +132,9 @@ func (s *service) UpdateStudentAfterVerifyEmail(ctx context.Context, data reques
 		UpdatedAt:  time.Now().UnixMilli(),
 	}
 
-	err = s.repository.UpdateStudent(ctx, *teacher)
+	err = s.repository.UpdateStudent(ctx, *student)
 	if err != nil {
-		log.Err(err).Msg("Failed to update teacher")
+		log.Err(err).Msg("Failed to update student")
 		return commonError.ErrInternal
 	}
 

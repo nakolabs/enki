@@ -30,17 +30,18 @@ func (s *service) Login(ctx context.Context, data request.LoginRequest) (*respon
 		return nil, commonError.ErrInvalidPassword
 	}
 
-	userSchoolRole := &repository.UserSchoolRole{}
-	userSchoolRole, err = s.repository.GetFirstUserSchoolRoleByUserID(ctx, user.ID)
+	userSchoolRole, err := s.repository.GetFirstUserSchoolRoleByUserID(ctx, user.ID)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			log.Err(err).Str("email", data.Email).Msg("failed to get user first user")
 			return nil, err
 		}
 
-		if user.Role != repository.SuperAdmin {
+		if user.Role != repository.UserRoleAdmin {
 			return nil, commonError.ErrUserNotFound
 		}
+
+		userSchoolRole = &repository.UserSchoolRole{}
 	}
 
 	now := time.Now()

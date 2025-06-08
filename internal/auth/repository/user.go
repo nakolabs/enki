@@ -31,7 +31,9 @@ type User struct {
 	ParentEmail string         `db:"parent_email"`
 	IsDeleted   bool           `db:"is_deleted"`
 	CreatedAt   int64          `db:"created_at"`
+	CreatedBy   uuid.UUID      `db:"created_by"`
 	UpdatedAt   int64          `db:"updated_at"`
+	UpdatedBy   sql.NullString `db:"updated_by"`
 	DeletedAt   int64          `db:"deleted_at"`
 	DeletedBy   sql.NullString `db:"deleted_by"`
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type Migration struct {
@@ -256,15 +255,6 @@ func (m *Migration) Seed() {
 		log.Error().Err(err).Msg("failed to read seeder directory")
 		return
 	}
-
-	const defaultPassword = "genesis"
-	pass, err := bcrypt.GenerateFromPassword([]byte(defaultPassword), bcrypt.DefaultCost)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to hash default password")
-		return
-	}
-
-	fmt.Println("Using default password for seeding:", string(pass))
 
 	log.Info().Int("seed_files", len(files)).Msg("starting database seeding")
 

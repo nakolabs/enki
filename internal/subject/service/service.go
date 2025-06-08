@@ -8,6 +8,7 @@ import (
 	"enuma-elish/internal/subject/service/data/response"
 	commonError "enuma-elish/pkg/error"
 	commonHttp "enuma-elish/pkg/http"
+	"enuma-elish/pkg/jwt"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,16 +39,22 @@ func New(repository repository.Repository, config *config.Config) Service {
 }
 
 func (s *service) CreateSubject(ctx context.Context, data request.CreateSubjectRequest) error {
+	jwtClaim, err := jwt.ExtractContext(ctx)
+	if err != nil {
+		log.Err(err).Msg("Failed to extract claims")
+		return commonError.ErrInvalidToken
+	}
 	now := time.Now().UnixMilli()
 	subject := repository.Subject{
 		ID:        uuid.New(),
 		SchoolID:  data.SchoolID,
 		Name:      data.Name,
 		CreatedAt: now,
+		CreatedBy: jwtClaim.User.ID,
 		UpdatedAt: 0,
 	}
 
-	err := s.repository.CreateSubject(ctx, subject)
+	err = s.repository.CreateSubject(ctx, subject)
 	if err != nil {
 		log.Err(err).Msg("Failed to create subject")
 		return commonError.ErrInternal

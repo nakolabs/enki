@@ -73,12 +73,20 @@ func (h *Handler) GetDetailSchool(c *gin.Context) {
 }
 
 func (h *Handler) ListSchool(c *gin.Context) {
-	data, err := h.service.GetListSchool(c.Request.Context())
+	httpQuery := request.GetListSchoolQuery{}
+	httpQuery.Query = commonHttp.DefaultQuery()
+	err := c.BindQuery(&httpQuery)
+	if err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	data, meta, err := h.service.GetListSchool(c.Request.Context(), httpQuery)
 	if err != nil {
 		response := commonHttp.NewResponse().
 			SetCode(http.StatusInternalServerError).
-			SetMessage(err.Error()).
-			SetErrors(err.Error())
+			SetMessage("get list school error").
+			SetErrors([]error{err})
 
 		c.JSON(response.Code, response)
 		return
@@ -86,8 +94,9 @@ func (h *Handler) ListSchool(c *gin.Context) {
 
 	response := commonHttp.NewResponse().
 		SetCode(http.StatusOK).
-		SetMessage("list school success").
-		SetData(data)
+		SetMessage("get list school success").
+		SetData(data).
+		SetMeta(meta)
 
 	c.JSON(http.StatusOK, response)
 }

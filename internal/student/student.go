@@ -43,6 +43,6 @@ func (s *Student) Init() {
 
 	v1.POST("/invite", h.InviteStudent)
 	v1.POST("/invite/verify", h.VerifyStudentEmail)
-	v1.POST("/invite/update", h.UpdateStudentAfterInvite)
+	v1.POST("/invite/complete", h.UpdateStudentAfterInvite)
 	v1.PUT("/class", h.UpdateStudentClass)
 }

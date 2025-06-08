@@ -43,7 +43,7 @@ func (t *Teacher) Init() {
 
 	v1.POST("/invite", h.InviteTeacher)
 	v1.POST("/invite/verify", h.VerifyTeacherEmail)
-	v1.POST("/invite/update", h.UpdateTeacherAfterInvite)
+	v1.POST("/invite/complete", h.UpdateTeacherAfterInvite)
 
 	// Add this line for the new endpoint
 	v1.GET("/:teacher_id/subjects", h.GetTeacherSubjects)

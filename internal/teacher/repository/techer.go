@@ -17,37 +17,43 @@ import (
 const TeacherVerifyEmailTokenKey = "teacher:verify:email"
 
 type User struct {
-	ID         uuid.UUID `db:"id"`
-	Name       string    `db:"name"`
-	Email      string    `db:"email"`
-	Password   string    `db:"password"`
-	IsVerified bool      `db:"is_verified"`
-	CreatedAt  int64     `db:"created_at"`
-	UpdatedAt  int64     `db:"updated_at"`
-}
-
-type Role struct {
-	ID        uuid.UUID `db:"id"`
-	Name      string    `db:"name"`
-	CreatedAt int64     `db:"created_at"`
-	UpdatedAt int64     `db:"updated_at"`
+	ID         uuid.UUID      `db:"id"`
+	Name       string         `db:"name"`
+	Email      string         `db:"email"`
+	Password   string         `db:"password"`
+	IsVerified bool           `db:"is_verified"`
+	CreatedAt  int64          `db:"created_at"`
+	CreatedBy  uuid.UUID      `db:"created_by"`
+	UpdatedAt  int64          `db:"updated_at"`
+	UpdatedBy  sql.NullString `db:"updated_by"`
+	DeletedAt  int64          `db:"deleted_at"`
+	DeletedBy  sql.NullString `db:"deleted_by"`
 }
 
 type UserSchoolRole struct {
-	ID        uuid.UUID `db:"id"`
-	UserID    uuid.UUID `db:"user_id"`
-	SchoolID  uuid.UUID `db:"school_id"`
-	RoleID    uuid.UUID `db:"role_id"`
-	CreatedAt int64     `db:"created_at"`
-	UpdatedAt int64     `db:"updated_at"`
+	ID        uuid.UUID      `db:"id"`
+	UserID    uuid.UUID      `db:"user_id"`
+	SchoolID  uuid.UUID      `db:"school_id"`
+	RoleID    string         `db:"role_id"`
+	IsDeleted bool           `db:"is_deleted"`
+	CreatedAt int64          `db:"created_at"`
+	CreatedBy uuid.UUID      `db:"created_by"`
+	UpdatedAt int64          `db:"updated_at"`
+	UpdatedBy sql.NullString `db:"updated_by"`
+	DeletedAt int64          `db:"deleted_at"`
+	DeletedBy sql.NullString `db:"deleted_by"`
 }
 
 type Subject struct {
-	ID        uuid.UUID `db:"id"`
-	Name      string    `db:"name"`
-	SchoolID  uuid.UUID `db:"school_id"`
-	CreatedAt int64     `db:"created_at"`
-	UpdatedAt int64     `db:"updated_at"`
+	ID        uuid.UUID      `db:"id"`
+	Name      string         `db:"name"`
+	SchoolID  uuid.UUID      `db:"school_id"`
+	CreatedAt int64          `db:"created_at"`
+	CreatedBy uuid.UUID      `db:"created_by"`
+	UpdatedAt int64          `db:"updated_at"`
+	UpdatedBy sql.NullString `db:"updated_by"`
+	DeletedAt int64          `db:"deleted_at"`
+	DeletedBy sql.NullString `db:"deleted_by"`
 }
 
 func (r *repository) CreateTeachers(ctx context.Context, teachers []User, schoolID uuid.UUID) error {
@@ -57,16 +63,12 @@ func (r *repository) CreateTeachers(ctx context.Context, teachers []User, school
 		return err
 	}
 
-	insertTeacher := "INSERT INTO users (id, email, name, password, is_verified, created_at, updated_at) VALUES (:id, :email, :name, :password, :is_verified, :created_at, :updated_at) ON CONFLICT (email) DO NOTHING"
+	insertTeacher := `INSERT INTO users (id, email, name, password, is_verified, created_at, created_by, updated_at)
+	 VALUES (:id, :email, :name, :password, :is_verified, :created_at, :created_by, :updated_at) ON CONFLICT (email, is_deleted) DO NOTHING`
+
 	_, err = tx.NamedExecContext(ctx, insertTeacher, teachers)
 	if err != nil {
-		return err
-	}
-
-	getRole := "SELECT id, name, created_at, updated_at FROM role WHERE name = 'teacher'"
-	role := &Role{}
-	err = tx.GetContext(ctx, role, getRole)
-	if err != nil {
+		log.Error().Err(err).Msg("failed to insert teachers")
 		return err
 	}
 
@@ -76,7 +78,7 @@ func (r *repository) CreateTeachers(ctx context.Context, teachers []User, school
 		emails = append(emails, teacher.Email)
 	}
 
-	q, args, err := sqlx.In("SELECT * FROM users WHERE email = (?)", emails)
+	q, args, err := sqlx.In("SELECT id, name, email, password, created_at, created_by, updated_at, deleted_at, deleted_by FROM users WHERE email = (?)", emails)
 	if err != nil {
 		return err
 	}
@@ -92,14 +94,16 @@ func (r *repository) CreateTeachers(ctx context.Context, teachers []User, school
 		userSchoolRole = append(userSchoolRole, UserSchoolRole{
 			ID:        uuid.New(),
 			UserID:    v.ID,
-			RoleID:    role.ID,
+			RoleID:    "teacher",
 			SchoolID:  schoolID,
 			CreatedAt: now,
+			CreatedBy: v.CreatedBy,
 			UpdatedAt: 0,
 		})
 	}
 
-	insertUserSchoolRole := "INSERT INTO user_school_role (id, user_id, school_id, role_id, created_at, updated_at) VALUES (:id, :user_id, :school_id, :role_id, :created_at, :updated_at) ON CONFLICT (user_id, school_id, role_id) DO NOTHING"
+	insertUserSchoolRole := `INSERT INTO user_school_role (id, user_id, school_id, role_id, created_at, created_by, updated_at)
+	 VALUES (:id, :user_id, :school_id, :role_id, :created_at, :created_by, :updated_at) ON CONFLICT (user_id, school_id, role_id, is_deleted) DO NOTHING`
 	_, err = tx.NamedExecContext(ctx, insertUserSchoolRole, userSchoolRole)
 	if err != nil {
 		return err
@@ -127,15 +131,9 @@ func (r *repository) GetListTeachers(ctx context.Context, httpQuery request.GetL
 	selectTeacher := "SELECT users.id, name, email, is_verified, user_school_role.created_at, user_school_role.updated_at FROM users JOIN user_school_role on users.id = user_school_role.user_id WHERE true"
 	countQuery := "SELECT COUNT(*) FROM users JOIN user_school_role on users.id = user_school_role.user_id WHERE true "
 
-	var teacherRoleID uuid.UUID
-	err := r.db.GetContext(ctx, &teacherRoleID, "SELECT id FROM role WHERE name = 'teacher'")
-	if err != nil {
-		return nil, 0, err
-	}
-
 	filterParams := make([]interface{}, 0)
 	filterQuery := ""
-	filterParams = append(filterParams, httpQuery.SchoolID, teacherRoleID)
+	filterParams = append(filterParams, httpQuery.SchoolID, "teacher")
 	filterQuery += " AND user_school_role.school_id = ? AND user_school_role.role_id = ? "
 
 	if httpQuery.Search != "" {
@@ -172,7 +170,7 @@ func (r *repository) GetListTeachers(ctx context.Context, httpQuery request.GetL
 	limitOrderParams := []interface{}{httpQuery.PageSize, httpQuery.GetOffset()}
 
 	selectParams := append(filterParams, limitOrderParams...)
-	err = r.db.SelectContext(ctx, &teachers, r.db.Rebind(selectTeacher+filterQuery+limitOrderQuery), selectParams...)
+	err := r.db.SelectContext(ctx, &teachers, r.db.Rebind(selectTeacher+filterQuery+limitOrderQuery), selectParams...)
 	if err != nil {
 		return nil, 9, err
 	}
@@ -210,7 +208,7 @@ func (r *repository) VerifyEmailToken(ctx context.Context, email string) (string
 
 func (r *repository) GetTeacherByEmail(ctx context.Context, email string) (*User, error) {
 	teacher := &User{}
-	err := r.db.GetContext(ctx, teacher, "SELECT * FROM users WHERE email = $1", email)
+	err := r.db.GetContext(ctx, teacher, "SELECT id, name, email, password, created_at, created_by, updated_at, deleted_at, deleted_by FROM users WHERE email = $1", email)
 	if err != nil {
 		return nil, err
 	}
@@ -238,20 +236,17 @@ func (r *repository) DeleteTeacher(ctx context.Context, teacherID uuid.UUID, sch
 		}
 	}(tx)
 
-	// Delete from user_school_role first (foreign key constraint)
 	_, err = tx.ExecContext(ctx, "DELETE FROM user_school_role WHERE user_id = $1 AND school_id = $2", teacherID, schoolID)
 	if err != nil {
 		return err
 	}
 
-	// Check if user has other school associations
 	var count int
 	err = tx.GetContext(ctx, &count, "SELECT COUNT(*) FROM user_school_role WHERE user_id = $1", teacherID)
 	if err != nil {
 		return err
 	}
 
-	// If no other associations, delete the user
 	if count == 0 {
 		_, err = tx.ExecContext(ctx, "DELETE FROM users WHERE id = $1", teacherID)
 		if err != nil {
@@ -269,7 +264,7 @@ func (r *repository) DeleteTeacher(ctx context.Context, teacherID uuid.UUID, sch
 
 func (r *repository) GetTeacherByID(ctx context.Context, teacherID uuid.UUID) (*User, error) {
 	teacher := &User{}
-	err := r.db.GetContext(ctx, teacher, "SELECT * FROM users WHERE id = $1", teacherID)
+	err := r.db.GetContext(ctx, teacher, "SELECT  id, name, email, password, created_at, created_by, updated_at, deleted_at, deleted_by FROM users WHERE id = $1", teacherID)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +286,6 @@ func (r *repository) UpdateTeacherClass(ctx context.Context, teacherID, oldClass
 		}
 	}()
 
-	// Update the class_teacher record
 	updateQuery := `UPDATE class_teacher 
 					SET class_id = $1, updated_at = $2 
 					WHERE teacher_id = $3 AND class_id = $4`
@@ -334,7 +328,7 @@ func (r *repository) GetTeacherSubjects(ctx context.Context, teacherID uuid.UUID
 		WHERE ts.teacher_id = $1 AND s.school_id = $2
 	`
 	var subjects []Subject
-	fmt.Println("teacherID:", teacherID, "schoolID:", payload.User.SchoolID)
+	intln("teacherID:", teacherID, "schoolID:", payload.User.SchoolID)
 	err = r.db.SelectContext(ctx, &subjects, query, teacherID, payload.User.SchoolID)
 	if err != nil {
 		return nil, err

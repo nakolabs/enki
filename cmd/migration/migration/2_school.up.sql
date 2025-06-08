@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS school (
     logo VARCHAR(255) NOT NULL DEFAULT '',
     banner VARCHAR(255) NOT NULL DEFAULT '',
     established_year INT NOT NULL DEFAULT 0,
+    description VARCHAR(255) NOT NULL DEFAULT '',
     created_at BIGINT NOT NULL DEFAULT (
         EXTRACT(
             EPOCH
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS school (
     ) :: BIGINT,
     created_by UUID NOT NULL REFERENCES users(id),
     updated_at BIGINT NOT NULL DEFAULT 0,
-    updated_by UUID NOT NULL REFERENCES users(id),
+    updated_by UUID REFERENCES users(id),
     deleted_at BIGINT DEFAULT 0,
     deleted_by UUID REFERENCES users(id)
 );

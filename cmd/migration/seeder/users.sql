@@ -1,10 +1,12 @@
 INSERT INTO
-    users (email, name, is_verified, password, role)
+    users (id, email, name, is_verified, password, role, created_by)
 VALUES
     (
-        'superadmin@genesis.com',
+        'd5c1a8a8-24cd-4071-a58e-84103891bce2',
+        'admin@genesis.com',
         'genesis admin',
         true,
-        '$2a$10$JNfPuqevLdQd1Wr7ttSAWeb42O1NHT6HYk3gcdxYUHtkckEmj9N56',
-        'admin'
+        '$2a$10$WWcXe4gaWIIeITfrKGIWe.KTDAGGPPX76bCJrc7FISK/t2gOHffsK',
+        'admin',
+        'd5c1a8a8-24cd-4071-a58e-84103891bce2'
     )

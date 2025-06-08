@@ -15,77 +15,116 @@ import (
 )
 
 type Exam struct {
-	ID        uuid.UUID `db:"id"`
-	Name      string    `db:"name"`
-	SchoolID  uuid.UUID `db:"school_id"`
-	SubjectID uuid.UUID `db:"subject_id"`
-	CreatedAt int64     `db:"created_at"`
-	UpdatedAt int64     `db:"updated_at"`
+	ID        uuid.UUID      `db:"id"`
+	Name      string         `db:"name"`
+	SchoolID  uuid.UUID      `db:"school_id"`
+	SubjectID uuid.UUID      `db:"subject_id"`
+	CreatedAt int64          `db:"created_at"`
+	CreatedBy uuid.UUID      `db:"created_by"`
+	UpdatedAt int64          `db:"updated_at"`
+	UpdatedBy sql.NullString `db:"updated_by"`
+	DeletedAt int64          `db:"deleted_at"`
+	DeletedBy sql.NullString `db:"deleted_by"`
 }
 
 type ExamClass struct {
-	ID        uuid.UUID `db:"id"`
-	ExamID    uuid.UUID `db:"exam_id"`
-	ClassID   uuid.UUID `db:"class_id"`
-	CreatedAt int64     `db:"created_at"`
-	UpdatedAt int64     `db:"updated_at"`
+	ID        uuid.UUID      `db:"id"`
+	ExamID    uuid.UUID      `db:"exam_id"`
+	ClassID   uuid.UUID      `db:"class_id"`
+	IsDeleted bool           `db:"is_deleted"`
+	CreatedAt int64          `db:"created_at"`
+	CreatedBy uuid.UUID      `db:"created_by"`
+	UpdatedAt int64          `db:"updated_at"`
+	UpdatedBy sql.NullString `db:"updated_by"`
+	DeletedAt int64          `db:"deleted_at"`
+	DeletedBy sql.NullString `db:"deleted_by"`
 }
 
 type ExamGrade struct {
-	ID        uuid.UUID `db:"id"`
-	ExamID    uuid.UUID `db:"exam_id"`
-	StudentID uuid.UUID `db:"student_id"`
-	Grade     *float64  `db:"grade"`
-	Answers   *string   `db:"answers"` // JSON string of answers
-	CreatedAt int64     `db:"created_at"`
-	UpdatedAt int64     `db:"updated_at"`
+	ID        uuid.UUID      `db:"id"`
+	ExamID    uuid.UUID      `db:"exam_id"`
+	StudentID uuid.UUID      `db:"student_id"`
+	Grade     *float64       `db:"grade"`
+	Answers   *string        `db:"answers"` // JSON string of answers
+	IsDeleted bool           `db:"is_deleted"`
+	CreatedAt int64          `db:"created_at"`
+	CreatedBy uuid.UUID      `db:"created_by"`
+	UpdatedAt int64          `db:"updated_at"`
+	UpdatedBy sql.NullString `db:"updated_by"`
+	DeletedAt int64          `db:"deleted_at"`
+	DeletedBy sql.NullString `db:"deleted_by"`
 }
 
 type ExamQuestion struct {
-	ID         uuid.UUID `db:"id"`
-	ExamID     uuid.UUID `db:"exam_id"`
-	QuestionID uuid.UUID `db:"question_id"`
-	CreatedAt  int64     `db:"created_at"`
-	UpdatedAt  int64     `db:"updated_at"`
+	ID         uuid.UUID      `db:"id"`
+	ExamID     uuid.UUID      `db:"exam_id"`
+	QuestionID uuid.UUID      `db:"question_id"`
+	IsDeleted  bool           `db:"is_deleted"`
+	CreatedAt  int64          `db:"created_at"`
+	CreatedBy  uuid.UUID      `db:"created_by"`
+	UpdatedAt  int64          `db:"updated_at"`
+	UpdatedBy  sql.NullString `db:"updated_by"`
+	DeletedAt  int64          `db:"deleted_at"`
+	DeletedBy  sql.NullString `db:"deleted_by"`
 }
 
 type Question struct {
-	ID            uuid.UUID `db:"id"`
-	Question      string    `db:"question"`
-	QuestionType  string    `db:"question_type"`
-	Options       *string   `db:"options"`        // JSON string for multiple choice options
-	CorrectAnswer *string   `db:"correct_answer"` // Correct option ID for multiple choice
+	ID            uuid.UUID      `db:"id"`
+	Question      string         `db:"question"`
+	QuestionType  string         `db:"question_type"`
+	Options       *string        `db:"options"`        // JSON string for multiple choice options
+	CorrectAnswer *string        `db:"correct_answer"` // Correct option ID for multiple choice
+	CreatedAt     int64          `db:"created_at"`
+	CreatedBy     uuid.UUID      `db:"created_by"`
+	UpdatedAt     int64          `db:"updated_at"`
+	UpdatedBy     sql.NullString `db:"updated_by"`
+	DeletedAt     int64          `db:"deleted_at"`
+	DeletedBy     sql.NullString `db:"deleted_by"`
 }
 
 type ExamWithSubject struct {
-	ID          uuid.UUID `db:"id"`
-	Name        string    `db:"name"`
-	SchoolID    uuid.UUID `db:"school_id"`
-	SubjectID   uuid.UUID `db:"subject_id"`
-	SubjectName string    `db:"subject_name"`
-	CreatedAt   int64     `db:"created_at"`
-	UpdatedAt   int64     `db:"updated_at"`
+	ID          uuid.UUID      `db:"id"`
+	Name        string         `db:"name"`
+	SchoolID    uuid.UUID      `db:"school_id"`
+	SubjectID   uuid.UUID      `db:"subject_id"`
+	SubjectName string         `db:"subject_name"`
+	IsDeleted   bool           `db:"is_deleted"`
+	CreatedAt   int64          `db:"created_at"`
+	CreatedBy   uuid.UUID      `db:"created_by"`
+	UpdatedAt   int64          `db:"updated_at"`
+	UpdatedBy   sql.NullString `db:"updated_by"`
+	DeletedAt   int64          `db:"deleted_at"`
+	DeletedBy   sql.NullString `db:"deleted_by"`
 }
 
 type StudentWithGrade struct {
-	ID        uuid.UUID `db:"id"`
-	Name      string    `db:"name"`
-	Email     string    `db:"email"`
-	Grade     *float64  `db:"grade"`
-	CreatedAt int64     `db:"created_at"`
-	UpdatedAt int64     `db:"updated_at"`
+	ID        uuid.UUID      `db:"id"`
+	Name      string         `db:"name"`
+	Email     string         `db:"email"`
+	Grade     *float64       `db:"grade"`
+	CreatedAt int64          `db:"created_at"`
+	CreatedBy uuid.UUID      `db:"created_by"`
+	UpdatedAt int64          `db:"updated_at"`
+	UpdatedBy sql.NullString `db:"updated_by"`
+	DeletedAt int64          `db:"deleted_at"`
+	DeletedBy sql.NullString `db:"deleted_by"`
 }
 
 type StudentExamWithAnswers struct {
-	ID          uuid.UUID `db:"id"`
-	Name        string    `db:"name"`
-	SchoolID    uuid.UUID `db:"school_id"`
-	SubjectID   uuid.UUID `db:"subject_id"`
-	SubjectName string    `db:"subject_name"`
-	Grade       *float64  `db:"grade"`
-	Answers     *string   `db:"answers"`
-	CreatedAt   int64     `db:"created_at"`
-	UpdatedAt   int64     `db:"updated_at"`
+	ID          uuid.UUID      `db:"id"`
+	Name        string         `db:"name"`
+	SchoolID    uuid.UUID      `db:"school_id"`
+	SubjectID   uuid.UUID      `db:"subject_id"`
+	SubjectName string         `db:"subject_name"`
+	Grade       *float64       `db:"grade"`
+	Answers     *string        `db:"answers"`
+	IsDeleted   bool           `db:"is_deleted"`
+	CreatedAt   int64          `db:"created_at"`
+	CreatedBy   uuid.UUID      `db:"created_by"`
+	UpdatedAt   int64          `db:"updated_at"`
+	UpdatedBy   sql.NullString `db:"updated_by"`
+	DeletedAt   int64          `db:"deleted_at"`
+	DeletedBy   sql.NullString `db:"deleted_by"`
 }
 
 type Repository interface {

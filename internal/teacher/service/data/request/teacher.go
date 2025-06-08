@@ -7,13 +7,18 @@ import (
 )
 
 type InviteTeacherRequest struct {
-	SchoolID uuid.UUID `json:"school_id"`
-	Emails   []string  `json:"emails"`
+	SchoolID uuid.UUID        `json:"school_id"`
+	Teachers []TeacherRequest `json:"teachers"`
 }
 
 type VerifyTeacherEmailRequest struct {
 	Email string `json:"email"`
 	Token string `json:"token"`
+}
+
+type TeacherRequest struct {
+	Name  string `json:"name" binding:"required"`
+	Email string `json:"email" binding:"required,email"`
 }
 
 type UpdateTeacherAfterVerifyEmailRequest struct {

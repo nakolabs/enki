@@ -7,6 +7,7 @@ import (
 	"enuma-elish/internal/teacher/service/data/response"
 	commonError "enuma-elish/pkg/error"
 	commonHttp "enuma-elish/pkg/http"
+	"enuma-elish/pkg/jwt"
 	"fmt"
 	"net/smtp"
 	"time"
@@ -18,21 +19,28 @@ import (
 
 func (s *service) InviteTeacher(ctx context.Context, data request.InviteTeacherRequest) error {
 
+	claim, err := jwt.ExtractContext(ctx)
+	if err != nil {
+		log.Err(err).Msg("Failed to extract claims")
+		return err
+	}
+
 	var teachers []repository.User
 	now := time.Now().UnixMilli()
-	for _, email := range data.Emails {
+	for _, teacher := range data.Teachers {
 		teachers = append(teachers, repository.User{
-			Email:      email,
+			Email:      teacher.Email,
 			ID:         uuid.New(),
-			Name:       "",
+			Name:       teacher.Name,
 			Password:   "",
 			IsVerified: false,
 			CreatedAt:  now,
+			CreatedBy:  claim.User.ID,
 			UpdatedAt:  0,
 		})
 	}
 
-	err := s.repository.CreateTeachers(ctx, teachers, data.SchoolID)
+	err = s.repository.CreateTeachers(ctx, teachers, data.SchoolID)
 	if err != nil {
 		log.Error().Err(err).Msg("create teachers error")
 		return err
@@ -45,7 +53,7 @@ func (s *service) InviteTeacher(ctx context.Context, data request.InviteTeacherR
 				log.Err(err).Str("email", v.Email).Msg("create teacher verify token")
 			}
 
-			link := fmt.Sprintf("%s/email-verification?email=%s&token=%s", s.config.Http.FrontendHost, v.Email, token)
+			link := fmt.Sprintf("%s/email-verification?email=%s&token=%s&type=invite_teacher", s.config.Http.FrontendHost, v.Email, token)
 			err = s.sendEmail(v.Email, link, "Email Verification")
 			if err != nil {
 				log.Err(err).Str("email", v.Email).Msg("send email")

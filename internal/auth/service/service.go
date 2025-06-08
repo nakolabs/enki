@@ -99,8 +99,8 @@ func (s *service) UpdateUser(ctx context.Context, data request.UpdateUserRequest
 		user.ParentEmail = data.ParentEmail
 	}
 	user.UpdatedAt = time.Now().UnixMilli()
+	user.UpdatedBy = sql.NullString{String: userID.String(), Valid: true}
 
-	// Update/Create profile in database
 	updatedProfile, err := s.repository.UpdateUser(ctx, user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update profile: %w", err)

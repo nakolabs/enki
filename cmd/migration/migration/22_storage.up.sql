@@ -20,7 +20,7 @@ CREATE TABLE storage (
     ) :: BIGINT,
     created_by UUID NOT NULL REFERENCES users(id),
     updated_at BIGINT NOT NULL DEFAULT 0,
-    updated_by UUID NOT NULL REFERENCES users(id),
+    updated_by UUID REFERENCES users(id),
     deleted_at BIGINT DEFAULT 0,
     deleted_by UUID DEFAULT NULL REFERENCES users(id)
 );

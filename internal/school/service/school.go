@@ -5,6 +5,7 @@ import (
 	"enuma-elish/internal/school/repository"
 	"enuma-elish/internal/school/service/data/request"
 	"enuma-elish/internal/school/service/data/response"
+	commonHttp "enuma-elish/pkg/http"
 	"enuma-elish/pkg/jwt"
 	"time"
 
@@ -14,22 +15,23 @@ import (
 
 func (s *service) CreatSchool(ctx context.Context, data request.CreateSchoolRequest) error {
 
+	claim, err := jwt.ExtractContext(ctx)
+	if err != nil {
+		log.Err(err).Msg("Failed to extract claims")
+		return err
+	}
+
 	now := time.Now().UnixMilli()
 	school := repository.School{
 		ID:        uuid.New(),
 		Name:      data.Name,
 		Level:     data.Level,
 		CreatedAt: now,
+		CreatedBy: claim.User.ID,
 		UpdatedAt: 0,
 	}
 
-	claims, err := jwt.ExtractContext(ctx)
-	if err != nil {
-		log.Err(err).Msg("Failed to extract claims")
-		return err
-	}
-
-	err = s.repository.CreateSchool(ctx, claims.User.ID, school)
+	err = s.repository.CreateSchool(ctx, claim.User.ID, school)
 	if err != nil {
 		log.Err(err).Msg("error creating school")
 		return err
@@ -57,31 +59,45 @@ func (s *service) GetDetailSchool(ctx context.Context, schoolID uuid.UUID) (resp
 	return detailSchool, nil
 }
 
-func (s *service) GetListSchool(ctx context.Context) (response.ListSchool, error) {
+func (s *service) GetListSchool(ctx context.Context, httpQuery request.GetListSchoolQuery) (response.ListSchool, *commonHttp.Meta, error) {
 	claim, err := jwt.ExtractContext(ctx)
 	if err != nil {
 		log.Err(err).Msg("Failed to extract claims")
-		return nil, err
+		return nil, nil, err
 	}
 
-	listSchool, err := s.repository.GetListSchool(ctx, claim.User.ID)
+	listSchool, total, err := s.repository.GetListSchool(ctx, claim.User.ID, httpQuery)
 	if err != nil {
 		log.Err(err).Msg("error getting list school")
-		return nil, err
+		return nil, nil, err
 	}
 
 	res := response.ListSchool{}
 	for _, school := range listSchool {
 		res = append(res, response.DetailSchool{
-			ID:        school.ID,
-			Name:      school.Name,
-			Level:     school.Level,
-			CreatedAt: school.CreatedAt,
-			UpdatedAt: school.UpdatedAt,
+			ID:          school.ID,
+			Name:        school.Name,
+			Level:       school.Level,
+			Description: school.Description,
+			Address:     school.Address,
+			City:        school.City,
+			Province:    school.Province,
+			PostalCode:  school.PostalCode,
+			Phone:       school.Phone,
+			Email:       school.Email,
+			Website:     school.Website,
+			Logo:        school.Logo,
+			Banner:      school.Banner,
+			CreatedAt:   school.CreatedAt,
+			CreatedBy:   school.CreatedBy.String(),
+			UpdatedAt:   school.UpdatedAt,
+			UpdatedBy:   school.UpdatedBy.String,
 		})
 	}
 
-	return res, nil
+	meta := commonHttp.NewMetaFromQuery(httpQuery, total)
+
+	return res, meta, nil
 }
 
 func (s *service) SwitchSchool(ctx context.Context, schoolID uuid.UUID) (string, error) {
@@ -169,7 +185,10 @@ func (s *service) UpdateSchoolProfile(ctx context.Context, schoolID uuid.UUID, d
 		Email:       updatedSchool.Email,
 		Website:     updatedSchool.Website,
 		Logo:        updatedSchool.Logo,
+		Banner:      updatedSchool.Banner,
 		CreatedAt:   updatedSchool.CreatedAt,
+		CreatedBy:   updatedSchool.CreatedBy.String(),
 		UpdatedAt:   updatedSchool.UpdatedAt,
+		UpdatedBy:   updatedSchool.UpdatedBy.String,
 	}, nil
 }

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"enuma-elish/internal/class/service/data/request"
 	"fmt"
 	"time"
@@ -13,61 +14,91 @@ import (
 )
 
 type Class struct {
-	ID        uuid.UUID `db:"id"`
-	SchoolID  uuid.UUID `db:"school_id"`
-	Name      string    `db:"name"`
-	CreatedAt int64     `db:"created_at"`
-	UpdatedAt int64     `db:"updated_at"`
+	ID        uuid.UUID      `db:"id"`
+	SchoolID  uuid.UUID      `db:"school_id"`
+	Name      string         `db:"name"`
+	CreatedAt int64          `db:"created_at"`
+	CreatedBy uuid.UUID      `db:"created_by"`
+	UpdatedAt int64          `db:"updated_at"`
+	UpdatedBy sql.NullString `db:"updated_by"`
+	DeletedAt int64          `db:"deleted_at"`
+	DeletedBy sql.NullString `db:"deleted_by"`
 }
 
 type ClassStudent struct {
-	ID        uuid.UUID `db:"id"`
-	StudentID uuid.UUID `db:"student_id"`
-	ClassID   uuid.UUID `db:"class_id"`
-	CreatedAt int64     `db:"created_at"`
-	UpdatedAt int64     `db:"updated_at"`
+	ID        uuid.UUID      `db:"id"`
+	StudentID uuid.UUID      `db:"student_id"`
+	ClassID   uuid.UUID      `db:"class_id"`
+	IsDeleted bool           `db:"is_deleted"`
+	CreatedAt int64          `db:"created_at"`
+	CreatedBy uuid.UUID      `db:"created_by"`
+	UpdatedAt int64          `db:"updated_at"`
+	UpdatedBy sql.NullString `db:"updated_by"`
+	DeletedAt int64          `db:"deleted_at"`
+	DeletedBy sql.NullString `db:"deleted_by"`
 }
 
 type ClassTeacher struct {
-	ID        uuid.UUID `db:"id"`
-	TeacherID uuid.UUID `db:"teacher_id"`
-	ClassID   uuid.UUID `db:"class_id"`
-	CreatedAt int64     `db:"created_at"`
-	UpdatedAt int64     `db:"updated_at"`
+	ID        uuid.UUID      `db:"id"`
+	TeacherID uuid.UUID      `db:"teacher_id"`
+	ClassID   uuid.UUID      `db:"class_id"`
+	IsDeleted bool           `db:"is_deleted"`
+	CreatedAt int64          `db:"created_at"`
+	CreatedBy uuid.UUID      `db:"created_by"`
+	UpdatedAt int64          `db:"updated_at"`
+	UpdatedBy sql.NullString `db:"updated_by"`
+	DeletedAt int64          `db:"deleted_at"`
+	DeletedBy sql.NullString `db:"deleted_by"`
 }
 
 type ClassSubject struct {
-	ID        uuid.UUID `db:"id"`
-	ClassID   uuid.UUID `db:"class_id"`
-	SubjectID uuid.UUID `db:"subject_id"`
-	CreatedAt int64     `db:"created_at"`
-	UpdatedAt int64     `db:"updated_at"`
+	ID        uuid.UUID      `db:"id"`
+	ClassID   uuid.UUID      `db:"class_id"`
+	SubjectID uuid.UUID      `db:"subject_id"`
+	CreatedAt int64          `db:"created_at"`
+	CreatedBy uuid.UUID      `db:"created_by"`
+	UpdatedAt int64          `db:"updated_at"`
+	UpdatedBy sql.NullString `db:"updated_by"`
+	DeletedAt int64          `db:"deleted_at"`
+	DeletedBy sql.NullString `db:"deleted_by"`
 }
 
 type Student struct {
-	ID         uuid.UUID `db:"id"`
-	Name       string    `db:"name"`
-	Email      string    `db:"email"`
-	IsVerified bool      `db:"is_verified"`
-	CreatedAt  int64     `db:"created_at"`
-	UpdatedAt  int64     `db:"updated_at"`
+	ID         uuid.UUID      `db:"id"`
+	Name       string         `db:"name"`
+	Email      string         `db:"email"`
+	IsVerified bool           `db:"is_verified"`
+	CreatedAt  int64          `db:"created_at"`
+	CreatedBy  uuid.UUID      `db:"created_by"`
+	UpdatedAt  int64          `db:"updated_at"`
+	UpdatedBy  sql.NullString `db:"updated_by"`
+	DeletedAt  int64          `db:"deleted_at"`
+	DeletedBy  sql.NullString `db:"deleted_by"`
 }
 
 type Teacher struct {
-	ID         uuid.UUID `db:"id"`
-	Name       string    `db:"name"`
-	Email      string    `db:"email"`
-	IsVerified bool      `db:"is_verified"`
-	CreatedAt  int64     `db:"created_at"`
-	UpdatedAt  int64     `db:"updated_at"`
+	ID         uuid.UUID      `db:"id"`
+	Name       string         `db:"name"`
+	Email      string         `db:"email"`
+	IsVerified bool           `db:"is_verified"`
+	CreatedAt  int64          `db:"created_at"`
+	CreatedBy  uuid.UUID      `db:"created_by"`
+	UpdatedAt  int64          `db:"updated_at"`
+	UpdatedBy  sql.NullString `db:"updated_by"`
+	DeletedAt  int64          `db:"deleted_at"`
+	DeletedBy  sql.NullString `db:"deleted_by"`
 }
 
 type Subject struct {
-	ID        uuid.UUID `db:"id"`
-	Name      string    `db:"name"`
-	SchoolID  uuid.UUID `db:"school_id"`
-	CreatedAt int64     `db:"created_at"`
-	UpdatedAt int64     `db:"updated_at"`
+	ID        uuid.UUID      `db:"id"`
+	Name      string         `db:"name"`
+	SchoolID  uuid.UUID      `db:"school_id"`
+	CreatedAt int64          `db:"created_at"`
+	CreatedBy uuid.UUID      `db:"created_by"`
+	UpdatedAt int64          `db:"updated_at"`
+	UpdatedBy sql.NullString `db:"updated_by"`
+	DeletedAt int64          `db:"deleted_at"`
+	DeletedBy sql.NullString `db:"deleted_by"`
 }
 
 type Repository interface {
@@ -98,8 +129,8 @@ func New(db *sqlx.DB) Repository {
 }
 
 func (r *repository) CreateClass(ctx context.Context, class Class) error {
-	query := `INSERT INTO class (id, school_id, name, created_at, updated_at) 
-			  VALUES (:id, :school_id, :name, :created_at, :updated_at)`
+	query := `INSERT INTO class (id, school_id, name, created_at, created_by, updated_at) 
+			  VALUES (:id, :school_id, :name, :created_at, :created_by, :updated_at)`
 	_, err := r.db.NamedExecContext(ctx, query, class)
 	return err
 }
@@ -158,7 +189,7 @@ func (r *repository) GetListClasses(ctx context.Context, httpQuery request.GetLi
 }
 
 func (r *repository) UpdateClass(ctx context.Context, class Class) error {
-	query := `UPDATE class SET name = :name, updated_at = :updated_at WHERE id = :id`
+	query := `UPDATE class SET name = :name, updated_at = :updated_at, updated_by = :updated_by WHERE id = :id`
 	_, err := r.db.NamedExecContext(ctx, query, class)
 	return err
 }
@@ -196,9 +227,9 @@ func (r *repository) AddStudentsToClass(ctx context.Context, classID uuid.UUID, 
 		})
 	}
 
-	insertQuery := `INSERT INTO class_student (id, student_id, class_id, created_at, updated_at) 
-					VALUES (:id, :student_id, :class_id, :created_at, :updated_at) 
-					ON CONFLICT (student_id, class_id) DO NOTHING`
+	insertQuery := `INSERT INTO class_student (id, student_id, class_id, created_at, created_by, updated_at) 
+					VALUES (:id, :student_id, :class_id, :created_at, :created_by, :updated_at) 
+					ON CONFLICT (student_id, class_id, is_deleted) DO NOTHING`
 
 	_, err = tx.NamedExecContext(ctx, insertQuery, classStudents)
 	if err != nil {
@@ -242,9 +273,9 @@ func (r *repository) AddTeachersToClass(ctx context.Context, classID uuid.UUID, 
 		})
 	}
 
-	insertQuery := `INSERT INTO class_teacher (id, teacher_id, class_id, created_at, updated_at) 
-					VALUES (:id, :teacher_id, :class_id, :created_at, :updated_at) 
-					ON CONFLICT (teacher_id, class_id) DO NOTHING`
+	insertQuery := `INSERT INTO class_teacher (id, teacher_id, class_id, created_at, created_by, updated_at) 
+					VALUES (:id, :teacher_id, :class_id, :created_at, :created_by, :updated_at) 
+					ON CONFLICT (teacher_id, class_id, is_deleted) DO NOTHING`
 
 	_, err = tx.NamedExecContext(ctx, insertQuery, classTeachers)
 	if err != nil {

@@ -2,12 +2,14 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"enuma-elish/config"
 	"enuma-elish/internal/class/repository"
 	"enuma-elish/internal/class/service/data/request"
 	"enuma-elish/internal/class/service/data/response"
 	commonError "enuma-elish/pkg/error"
 	commonHttp "enuma-elish/pkg/http"
+	"enuma-elish/pkg/jwt"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,16 +47,23 @@ func New(repository repository.Repository, config *config.Config) Service {
 
 func (s *service) CreateClass(ctx context.Context, data request.CreateClassRequest) error {
 
+	jwtClaim, err := jwt.ExtractContext(ctx)
+	if err != nil {
+		log.Err(err).Msg("Failed to extract claims")
+		return commonError.ErrInvalidToken
+	}
+
 	now := time.Now().UnixMilli()
 	class := repository.Class{
 		ID:        uuid.New(),
 		SchoolID:  data.SchoolID,
 		Name:      data.Name,
 		CreatedAt: now,
+		CreatedBy: jwtClaim.User.ID,
 		UpdatedAt: 0,
 	}
 
-	err := s.repository.CreateClass(ctx, class)
+	err = s.repository.CreateClass(ctx, class)
 	if err != nil {
 		log.Err(err).Msg("Failed to create class")
 		return commonError.ErrInternal
@@ -102,6 +111,13 @@ func (s *service) GetListClass(ctx context.Context, httpQuery request.GetListCla
 }
 
 func (s *service) UpdateClass(ctx context.Context, classID uuid.UUID, data request.UpdateClassRequest) error {
+
+	jwtClaim, err := jwt.ExtractContext(ctx)
+	if err != nil {
+		log.Err(err).Msg("Failed to extract claims")
+		return commonError.ErrInvalidToken
+	}
+
 	class, err := s.repository.GetClassByID(ctx, classID)
 	if err != nil {
 		log.Err(err).Msg("Failed to get class")
@@ -110,6 +126,7 @@ func (s *service) UpdateClass(ctx context.Context, classID uuid.UUID, data reque
 
 	class.Name = data.Name
 	class.UpdatedAt = time.Now().UnixMilli()
+	class.UpdatedBy = sql.NullString{String: jwtClaim.User.ID.String(), Valid: true}
 
 	err = s.repository.UpdateClass(ctx, *class)
 	if err != nil {

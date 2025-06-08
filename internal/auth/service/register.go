@@ -8,10 +8,11 @@ import (
 	commonError "enuma-elish/pkg/error"
 	"errors"
 	"fmt"
+	"net/smtp"
+
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
-	"net/smtp"
 )
 
 func (s *service) Register(ctx context.Context, data request.Register) error {
@@ -47,7 +48,7 @@ func (s *service) Register(ctx context.Context, data request.Register) error {
 	}
 
 	go func() {
-		verifyUrl := fmt.Sprintf("%s/email-verification?token=%s&email=%s", s.config.Http.FrontendHost, user.Token, data.Email)
+		verifyUrl := fmt.Sprintf("%s/email-verification?token=%s&email=%s&type=registration", s.config.Http.FrontendHost, user.Token, data.Email)
 		err = s.sendEmail(user.Email, verifyUrl, "verify email")
 		if err != nil {
 			log.Err(err).Msg("Failed to send email")

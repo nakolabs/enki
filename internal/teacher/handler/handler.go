@@ -5,7 +5,6 @@ import (
 	"enuma-elish/internal/teacher/service/data/request"
 	commonHttp "enuma-elish/pkg/http"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -112,7 +111,6 @@ func (h *Handler) ListTeachers(c *gin.Context) {
 	httpQuery.Query = commonHttp.DefaultQuery()
 	err := c.BindQuery(&httpQuery)
 	if err != nil {
-		fmt.Println(err)
 		c.Error(err).SetType(gin.ErrorTypeBind)
 		return
 	}

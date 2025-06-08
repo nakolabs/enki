@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"enuma-elish/internal/student/service/data/request"
 	"fmt"
 	"time"
@@ -35,22 +36,30 @@ func New(db *sqlx.DB, rdb *redis.Client) Repository {
 }
 
 type User struct {
-	ID         uuid.UUID `db:"id"`
-	Name       string    `db:"name"`
-	Password   string    `db:"password"`
-	Email      string    `db:"email"`
-	IsVerified bool      `db:"is_verified"`
-	CreatedAt  int64     `db:"created_at"`
-	UpdatedAt  int64     `db:"updated_at"`
+	ID         uuid.UUID      `db:"id"`
+	Name       string         `db:"name"`
+	Password   string         `db:"password"`
+	Email      string         `db:"email"`
+	IsVerified bool           `db:"is_verified"`
+	CreatedAt  int64          `db:"created_at"`
+	CreatedBy  uuid.UUID      `db:"created_by"`
+	UpdatedAt  int64          `db:"updated_at"`
+	UpdatedBy  sql.NullString `db:"updated_by"`
+	DeletedAt  int64          `db:"deleted_at"`
+	DeletedBy  sql.NullString `db:"deleted_by"`
 }
 
 type UserSchoolRole struct {
-	ID        uuid.UUID `db:"id"`
-	UserID    uuid.UUID `db:"user_id"`
-	RoleID    uuid.UUID `db:"role_id"`
-	SchoolID  uuid.UUID `db:"school_id"`
-	CreatedAt int64     `db:"created_at"`
-	UpdatedAt int64     `db:"updated_at"`
+	ID        uuid.UUID      `db:"id"`
+	UserID    uuid.UUID      `db:"user_id"`
+	RoleID    string         `db:"role_id"`
+	SchoolID  uuid.UUID      `db:"school_id"`
+	CreatedAt int64          `db:"created_at"`
+	CreatedBy uuid.UUID      `db:"created_by"`
+	UpdatedAt int64          `db:"updated_at"`
+	UpdatedBy sql.NullString `db:"updated_by"`
+	DeletedAt int64          `db:"deleted_at"`
+	DeletedBy sql.NullString `db:"deleted_by"`
 }
 
 const StudentVerifyEmailTokenKey = "student:verify:email"
@@ -71,8 +80,10 @@ func (r *repository) CreateStudent(ctx context.Context, schoolID uuid.UUID, u []
 		}
 	}()
 
-	insertUserQuery := "INSERT INTO users (id, name, password, email, is_verified, created_at, updated_at) VALUES (:id, :name, :password, :email, :is_verified, :created_at, :updated_at) ON CONFLICT (email) DO NOTHING"
-	insertUserSchoolRoleQuery := "INSERT INTO user_school_role (id, user_id, role_id, school_id, created_at, updated_at) VALUES (:id, :user_id, :role_id, :school_id, :created_at, :updated_at) ON CONFLICT (user_id, school_id, role_id) DO NOTHING"
+	insertUserQuery := `INSERT INTO users (id, name, password, email, is_verified, created_at, created_by, updated_at) 
+	VALUES (:id, :name, :password, :email, :is_verified, :created_at, :created_by, :updated_at) ON CONFLICT (email, is_deleted) DO NOTHING`
+	insertUserSchoolRoleQuery := `INSERT INTO user_school_role (id, user_id, role_id, school_id, created_at, created_by, updated_at)
+	 VALUES (:id, :user_id, :role_id, :school_id, :created_at, :created_by, :updated_at) ON CONFLICT (user_id, school_id, role_id, is_deleted) DO NOTHING`
 
 	_, err = tx.NamedExecContext(ctx, insertUserQuery, u)
 	if err != nil {
@@ -84,19 +95,13 @@ func (r *repository) CreateStudent(ctx context.Context, schoolID uuid.UUID, u []
 		emails[i] = v.Email
 	}
 
-	selectUserQuery, args, err := sqlx.In("SELECT * FROM users WHERE email IN (?)", emails)
+	selectUserQuery, args, err := sqlx.In("SELECT id, name, password, email, is_verified, created_at, created_by, updated_at FROM users WHERE email IN (?)", emails)
 	if err != nil {
 		return err
 	}
 
 	var users []User
 	err = tx.SelectContext(ctx, &users, tx.Rebind(selectUserQuery), args...)
-	if err != nil {
-		return err
-	}
-
-	var studentRoleID uuid.UUID
-	err = tx.GetContext(ctx, &studentRoleID, "SELECT id FROM role WHERE name = 'student'")
 	if err != nil {
 		return err
 	}
@@ -108,8 +113,9 @@ func (r *repository) CreateStudent(ctx context.Context, schoolID uuid.UUID, u []
 			ID:        user.ID,
 			UserID:    user.ID,
 			SchoolID:  schoolID,
-			RoleID:    studentRoleID,
+			RoleID:    "student",
 			CreatedAt: now,
+			CreatedBy: user.ID,
 			UpdatedAt: 0,
 		})
 	}
@@ -149,7 +155,7 @@ func (r *repository) VerifyEmailToken(ctx context.Context, email string) (string
 
 func (r *repository) GetStudentByEmail(ctx context.Context, email string) (*User, error) {
 	student := &User{}
-	err := r.db.GetContext(ctx, student, "SELECT * FROM users WHERE email = $1", email)
+	err := r.db.GetContext(ctx, student, "SELECT id, name, password, email, is_verified, created_at, created_by, updated_at FROM users WHERE email = $1", email)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +164,7 @@ func (r *repository) GetStudentByEmail(ctx context.Context, email string) (*User
 
 func (r *repository) GetStudentByID(ctx context.Context, studentID uuid.UUID) (*User, error) {
 	student := &User{}
-	err := r.db.GetContext(ctx, student, "SELECT * FROM users WHERE id = $1", studentID)
+	err := r.db.GetContext(ctx, student, "SELECT id, name, password, email, is_verified, created_at, created_by, updated_at FROM users WHERE id = $1", studentID)
 	if err != nil {
 		return nil, err
 	}
@@ -228,13 +234,7 @@ func (r *repository) GetListStudent(ctx context.Context, httpQuery request.GetLi
 	selectStudent := "SELECT users.id, name, email, is_verified, user_school_role.created_at, user_school_role.updated_at FROM users JOIN user_school_role on users.id = user_school_role.user_id WHERE true"
 	countQuery := "SELECT COUNT(*) FROM users JOIN user_school_role on users.id = user_school_role.user_id WHERE true"
 
-	var studentRoleID uuid.UUID
-	err := r.db.GetContext(ctx, &studentRoleID, "SELECT id FROM role WHERE name = 'student'")
-	if err != nil {
-		return nil, 0, err
-	}
-
-	filterParams := []interface{}{httpQuery.SchoolID, studentRoleID}
+	filterParams := []interface{}{httpQuery.SchoolID, "student"}
 	filterQuery := " AND user_school_role.school_id = ? AND user_school_role.role_id = ?"
 
 	if httpQuery.Search != "" && len(httpQuery.SearchBy) > 0 {
@@ -264,7 +264,7 @@ func (r *repository) GetListStudent(ctx context.Context, httpQuery request.GetLi
 	limitOrderParams := []interface{}{httpQuery.PageSize, httpQuery.GetOffset()}
 
 	selectParams := append(filterParams, limitOrderParams...)
-	err = r.db.SelectContext(ctx, &students, r.db.Rebind(selectStudent+filterQuery+limitOrderQuery), selectParams...)
+	err := r.db.SelectContext(ctx, &students, r.db.Rebind(selectStudent+filterQuery+limitOrderQuery), selectParams...)
 	if err != nil {
 		return nil, 0, err
 	}

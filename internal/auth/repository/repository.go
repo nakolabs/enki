@@ -9,19 +9,27 @@ import (
 )
 
 const (
-	SuperAdmin  = "super_admin"
-	Admin       = "admin"
-	Teacher     = "teacher"
-	Student     = "student"
-	HeadTeacher = "head_teacher"
+	UserSchoolRoleAdmin       = "admin"
+	UserSchoolRoleTeacher     = "teacher"
+	UserSchoolRoleStudent     = "student"
+	UserSchoolRoleHeadTeacher = "head_teacher"
 )
 
-var Role = map[string]string{
-	SuperAdmin:  SuperAdmin,
-	Admin:       Admin,
-	Teacher:     Teacher,
-	Student:     Student,
-	HeadTeacher: HeadTeacher,
+const (
+	UserRoleAdmin = "admin"
+	UserRoleUser  = "user"
+)
+
+var SchoolRole = map[string]string{
+	UserSchoolRoleAdmin:       UserSchoolRoleAdmin,
+	UserSchoolRoleTeacher:     UserSchoolRoleTeacher,
+	UserSchoolRoleStudent:     UserSchoolRoleStudent,
+	UserSchoolRoleHeadTeacher: UserSchoolRoleHeadTeacher,
+}
+
+var UserRole = map[string]string{
+	UserRoleAdmin: UserRoleAdmin,
+	UserRoleUser:  UserRoleUser,
 }
 
 type Repository interface {
@@ -61,7 +69,8 @@ func (r *repository) UpdateUser(ctx context.Context, user *User) (*User, error) 
 			  parent_name = :parent_name, 
 			  parent_phone = :parent_phone, 
 			  parent_email = :parent_email, 
-			  updated_at = :updated_at 
+			  updated_at = :updated_at,
+			  updated_by = :updated_by
 			  WHERE id = :id`
 
 	_, err := r.db.NamedExecContext(ctx, query, user)

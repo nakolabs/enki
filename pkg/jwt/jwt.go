@@ -26,7 +26,7 @@ type User struct {
 	ID         uuid.UUID `json:"id"`
 	Email      string    `json:"email"`
 	SchoolID   uuid.UUID `json:"school_id"`
-	SchoolRole string    `json:"role"`
+	SchoolRole string    `json:"school_role"`
 	UserRole   string    `json:"user_role"`
 }
 

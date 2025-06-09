@@ -20,6 +20,8 @@ type Service interface {
 	GetDetailTeacher(ctx context.Context, teacherID uuid.UUID) (response.GetDetailTeacherResponse, error)
 	UpdateTeacherClass(ctx context.Context, data request.UpdateTeacherClassRequest) error
 	GetTeacherSubjects(ctx context.Context, teacherID uuid.UUID) ([]response.Subject, error)
+	GetTeacherClasses(ctx context.Context, teacherID uuid.UUID) ([]response.Class, error)
+	GetTeacherStatistics(ctx context.Context) (response.TeacherStatistics, error)
 }
 
 type service struct {

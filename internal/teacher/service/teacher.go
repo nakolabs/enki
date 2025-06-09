@@ -26,26 +26,73 @@ func (s *service) InviteTeacher(ctx context.Context, data request.InviteTeacherR
 	}
 
 	var teachers []repository.User
+	var allTeacherSubjects []repository.TeacherSubject
+	var allTeacherClasses []repository.TeacherClass
 	now := time.Now().UnixMilli()
-	for _, teacher := range data.Teachers {
+
+	// Prepare teachers and assignments
+	for _, teacherRequest := range data.Teachers {
+		teacherID := uuid.New()
+
+		// Create teacher
 		teachers = append(teachers, repository.User{
-			Email:      teacher.Email,
-			ID:         uuid.New(),
-			Name:       teacher.Name,
+			Email:      teacherRequest.Email,
+			ID:         teacherID,
+			Name:       teacherRequest.Name,
 			Password:   "",
 			IsVerified: false,
 			CreatedAt:  now,
 			CreatedBy:  claim.User.ID,
 			UpdatedAt:  0,
 		})
+
+		// Prepare subject assignments
+		for _, subjectIDStr := range teacherRequest.SubjectIDs {
+			subjectID, err := uuid.Parse(subjectIDStr)
+			if err != nil {
+				log.Err(err).Str("subject_id", subjectIDStr).Msg("invalid subject ID")
+				continue
+			}
+
+			allTeacherSubjects = append(allTeacherSubjects, repository.TeacherSubject{
+				ID:        uuid.New(),
+				TeacherID: teacherID,
+				SubjectID: subjectID,
+				CreatedAt: now,
+				CreatedBy: claim.User.ID,
+				UpdatedAt: 0,
+				IsDeleted: false,
+			})
+		}
+
+		// Prepare class assignments
+		for _, classIDStr := range teacherRequest.ClassIDs {
+			classID, err := uuid.Parse(classIDStr)
+			if err != nil {
+				log.Err(err).Str("class_id", classIDStr).Msg("invalid class ID")
+				continue
+			}
+
+			allTeacherClasses = append(allTeacherClasses, repository.TeacherClass{
+				ID:        uuid.New(),
+				TeacherID: teacherID,
+				ClassID:   classID,
+				CreatedAt: now,
+				CreatedBy: claim.User.ID,
+				UpdatedAt: 0,
+				IsDeleted: false,
+			})
+		}
 	}
 
-	err = s.repository.CreateTeachers(ctx, teachers, data.SchoolID)
+	// Create teachers with assignments in a single transaction
+	err = s.repository.CreateTeachersWithAssignments(ctx, teachers, data.SchoolID, allTeacherSubjects, allTeacherClasses)
 	if err != nil {
-		log.Error().Err(err).Msg("create teachers error")
+		log.Error().Err(err).Msg("create teachers with assignments error")
 		return err
 	}
 
+	// Send email invitations
 	go func([]repository.User) {
 		for _, v := range teachers {
 			token, err := s.repository.CreateTeacherVerifyToken(context.Background(), v.Email)
@@ -147,23 +194,97 @@ func (s *service) ListTeachers(ctx context.Context, httpQuery request.GetListTea
 	listTeacher, total, err := s.repository.GetListTeachers(ctx, httpQuery)
 	if err != nil {
 		log.Err(err).Msg("list teachers")
-		return nil, nil, err
+		return response.GetListTeacherResponse{}, nil, err
 	}
 
 	meta := commonHttp.NewMetaFromQuery(httpQuery, total)
-	res := make(response.GetListTeacherResponse, len(listTeacher))
+
+	// Get teacher IDs for assignments lookup
+	var teacherIDs []uuid.UUID
+	for _, teacher := range listTeacher {
+		teacherIDs = append(teacherIDs, teacher.ID)
+	}
+
+	// Get assignments if we have teachers
+	var subjectMap map[uuid.UUID][]repository.Subject
+	var classMap map[uuid.UUID][]repository.Class
+
+	if len(teacherIDs) > 0 {
+		schoolIDUUID, err := uuid.Parse(httpQuery.SchoolID)
+		if err != nil {
+			log.Err(err).Msg("parse school ID")
+			return response.GetListTeacherResponse{}, nil, err
+		}
+
+		subjectMap, classMap, err = s.repository.GetTeacherAssignments(ctx, teacherIDs, schoolIDUUID)
+		if err != nil {
+			log.Err(err).Msg("get teacher assignments")
+			// Don't fail the request, just log the error and continue without assignments
+			subjectMap = make(map[uuid.UUID][]repository.Subject)
+			classMap = make(map[uuid.UUID][]repository.Class)
+		}
+	}
+
+	teachers := make([]response.GetTeacherResponse, len(listTeacher))
 	for i, teacher := range listTeacher {
-		res[i] = response.GetTeacherResponse{
+		// Convert repository subjects to response subjects
+		var subjects []response.Subject
+		for _, subject := range subjectMap[teacher.ID] {
+			subjects = append(subjects, response.Subject{
+				ID:        subject.ID,
+				Name:      subject.Name,
+				SchoolID:  subject.SchoolID,
+				CreatedAt: subject.CreatedAt,
+				UpdatedAt: subject.UpdatedAt,
+			})
+		}
+
+		// Convert repository classes to response classes
+		var classes []response.Class
+		for _, class := range classMap[teacher.ID] {
+			classes = append(classes, response.Class{
+				ID:        class.ID,
+				Name:      class.Name,
+				SchoolID:  class.SchoolID,
+				CreatedAt: class.CreatedAt,
+				UpdatedAt: class.UpdatedAt,
+			})
+		}
+
+		teachers[i] = response.GetTeacherResponse{
 			ID:         teacher.ID,
 			Name:       teacher.Name,
 			Email:      teacher.Email,
 			IsVerified: teacher.IsVerified,
 			CreateAt:   teacher.CreatedAt,
 			UpdateAt:   teacher.UpdatedAt,
+			Subjects:   subjects,
+			Classes:    classes,
 		}
 	}
 
-	return res, meta, nil
+	return teachers, meta, nil
+}
+
+func (s *service) GetTeacherStatistics(ctx context.Context) (response.TeacherStatistics, error) {
+	// Get teacher statistics
+	jwtClaim, err := jwt.ExtractContext(ctx)
+	if err != nil {
+		log.Err(err).Msg("Failed to extract claims")
+		return response.TeacherStatistics{}, commonError.ErrUnauthorized
+	}
+	totalTeachers, verifiedTeachers, pendingTeachers, activeTeachers, err := s.repository.GetTeacherStatistics(ctx, jwtClaim.User.SchoolID.String())
+	if err != nil {
+		log.Err(err).Msg("get teacher statistics")
+		return response.TeacherStatistics{}, err
+	}
+
+	return response.TeacherStatistics{
+		TotalTeachers:    totalTeachers,
+		VerifiedTeachers: verifiedTeachers,
+		PendingTeachers:  pendingTeachers,
+		ActiveTeachers:   activeTeachers,
+	}, nil
 }
 
 func (s *service) DeleteTeacher(ctx context.Context, teacherID uuid.UUID, schoolID uuid.UUID) error {
@@ -216,6 +337,24 @@ func (s *service) GetTeacherSubjects(ctx context.Context, teacherID uuid.UUID) (
 			SchoolID:  subject.SchoolID,
 			CreatedAt: subject.CreatedAt,
 			UpdatedAt: subject.UpdatedAt,
+		}
+	}
+	return res, nil
+}
+
+func (s *service) GetTeacherClasses(ctx context.Context, teacherID uuid.UUID) ([]response.Class, error) {
+	classes, err := s.repository.GetTeacherClasses(ctx, teacherID)
+	if err != nil {
+		return nil, err
+	}
+	res := make([]response.Class, len(classes))
+	for i, class := range classes {
+		res[i] = response.Class{
+			ID:        class.ID,
+			Name:      class.Name,
+			SchoolID:  class.SchoolID,
+			CreatedAt: class.CreatedAt,
+			UpdatedAt: class.UpdatedAt,
 		}
 	}
 	return res, nil

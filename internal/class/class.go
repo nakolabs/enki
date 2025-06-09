@@ -42,7 +42,7 @@ func (cl *Class) Init() {
 	v1.PUT("/:class_id", h.UpdateClass)
 	v1.DELETE("/:class_id", h.DeleteClass)
 	v1.POST("/add-students", h.AddStudentsToClass)
-	v1.POST("/add-teachers", h.AddTeachersToClass)
+	v1.POST("/assign-teachers", h.AddTeachersToClass)
 	v1.POST("/add-subjects", h.AddSubjectsToClass)
 	v1.GET("/:class_id/students", h.GetStudentsByClass)
 	v1.GET("/:class_id/teachers", h.GetTeachersByClass)

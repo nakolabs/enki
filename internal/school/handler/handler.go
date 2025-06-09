@@ -101,6 +101,26 @@ func (h *Handler) ListSchool(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+func (h *Handler) ListSchoolStatistics(c *gin.Context) {
+	data, err := h.service.GetListSchoolStatistics(c.Request.Context())
+	if err != nil {
+		response := commonHttp.NewResponse().
+			SetCode(http.StatusInternalServerError).
+			SetMessage("get list school stat error").
+			SetErrors([]error{err})
+
+		c.JSON(response.Code, response)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("get list school stat success").
+		SetData(data)
+
+	c.JSON(http.StatusOK, response)
+}
+
 func (h *Handler) SwitchSchool(c *gin.Context) {
 	schoolIDStr := c.Param("school_id")
 	schoolID, err := uuid.Parse(schoolIDStr)
@@ -109,7 +129,7 @@ func (h *Handler) SwitchSchool(c *gin.Context) {
 		return
 	}
 
-	token, err := h.service.SwitchSchool(c.Request.Context(), schoolID)
+	token, refreshToken, err := h.service.SwitchSchool(c.Request.Context(), schoolID)
 	if err != nil {
 		response := commonHttp.NewResponse().
 			SetCode(http.StatusInternalServerError).
@@ -122,7 +142,7 @@ func (h *Handler) SwitchSchool(c *gin.Context) {
 	response := commonHttp.NewResponse().
 		SetCode(http.StatusOK).
 		SetMessage("switch school success").
-		SetData(gin.H{"access_token": token})
+		SetData(gin.H{"access_token": token, "refresh_token": refreshToken})
 
 	c.JSON(http.StatusOK, response)
 }

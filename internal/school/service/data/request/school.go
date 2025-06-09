@@ -5,8 +5,18 @@ import (
 )
 
 type CreateSchoolRequest struct {
-	Name  string `json:"name" validate:"required"`
-	Level string `json:"level" validate:"required,oneof='preschool' 'kindergarten' 'elementary' 'junior' 'senior' 'college"`
+	Name        string `json:"name" validate:"required"`
+	Level       string `json:"level" validate:"required,oneof='preschool' 'kindergarten' 'elementary' 'junior' 'senior' 'college'"`
+	Description string `json:"description"`
+	Address     string `json:"address"`
+	City        string `json:"city"`
+	Province    string `json:"province"`
+	PostalCode  string `json:"postal_code"`
+	Phone       string `json:"phone" validate:"omitempty,e164"`
+	Email       string `json:"email" validate:"omitempty,email"`
+	Website     string `json:"website" validate:"omitempty,url"`
+	Logo        string `json:"logo" validate:"omitempty"`
+	Banner      string `json:"banner" validate:"omitempty"`
 }
 
 type UpdateSchoolProfileRequest struct {

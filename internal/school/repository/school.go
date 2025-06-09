@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 )
 
@@ -29,7 +30,7 @@ type School struct {
 	CreatedAt   int64          `db:"created_at"`
 	CreatedBy   uuid.UUID      `db:"created_by"`
 	UpdatedAt   int64          `db:"updated_at"`
-	UpdatedBy   sql.NullString `db:"updated_by"`
+	UpdatedBy   uuid.NullUUID  `db:"updated_by"`
 	DeletedAt   int64          `db:"deleted_at"`
 	DeletedBy   sql.NullString `db:"deleted_by"`
 }
@@ -48,6 +49,28 @@ type UserSchoolRole struct {
 	DeletedBy sql.NullString `db:"deleted_by"`
 }
 
+type SchoolStatistics struct {
+	StudentCount    int `db:"student_count"`
+	TeacherCount    int `db:"teacher_count"`
+	ClassCount      int `db:"class_count"`
+	SubjectCount    int `db:"subject_count"`
+	ExamCount       int `db:"exam_count"`
+	PendingStudents int `db:"pending_students"`
+}
+
+type SchoolCounts struct {
+	SchoolID     uuid.UUID `db:"school_id"`
+	StudentCount int       `db:"student_count"`
+	TeacherCount int       `db:"teacher_count"`
+}
+
+type ListSchoolStatistics struct {
+	TotalSchools  int `db:"total_schools"`
+	TotalStudents int `db:"total_students"`
+	TotalTeachers int `db:"total_teachers"`
+	ActiveSchools int `db:"active_schools"`
+}
+
 func (r *repository) CreateSchool(ctx context.Context, userID uuid.UUID, school School) error {
 
 	tx, err := r.db.BeginTxx(ctx, nil)
@@ -62,7 +85,8 @@ func (r *repository) CreateSchool(ctx context.Context, userID uuid.UUID, school 
 		}
 	}(tx)
 
-	_, err = tx.NamedExecContext(ctx, `INSERT INTO school (id, name, level, created_at, created_by) VALUES (:id, :name, :level, :created_at, :created_by)`, school)
+	_, err = tx.NamedExecContext(ctx, `INSERT INTO school (id, name, level, description, address, city, province, postal_code, phone, email, website, logo, banner, created_at, created_by)
+	 VALUES (:id, :name, :level, :description, :address, :city, :province, :postal_code, :phone, :email, :website, :logo, :banner, :created_at, :created_by)`, school)
 	if err != nil {
 		return err
 	}
@@ -89,7 +113,10 @@ func (r *repository) CreateSchool(ctx context.Context, userID uuid.UUID, school 
 
 func (r *repository) GetSchoolByID(ctx context.Context, id uuid.UUID) (*School, error) {
 	school := School{}
-	err := r.db.GetContext(ctx, &school, `SELECT id, name, level, description, address, city, province, postal_code, phone, email, website, logo, banner, created_at, updated_at FROM school WHERE id = $1`, id)
+	err := r.db.GetContext(ctx, &school, `SELECT 
+		id, name, level, description, address, city, province, 
+		postal_code, phone, email, website, logo, banner, created_at, created_by, updated_at, updated_by
+		FROM school WHERE id = $1`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -149,6 +176,81 @@ func (r *repository) GetListSchool(ctx context.Context, userID uuid.UUID, httpQu
 	}
 
 	return schools, total, nil
+}
+
+func (r *repository) GetSchoolCounts(ctx context.Context, schoolIDs []uuid.UUID) (map[uuid.UUID]SchoolCounts, error) {
+	query := `
+		SELECT 
+			usr.school_id,
+			COUNT(CASE WHEN usr.role_id = 'student' THEN 1 END) as student_count,
+			COUNT(CASE WHEN usr.role_id = 'teacher' THEN 1 END) as teacher_count
+		FROM user_school_role usr
+		JOIN users u ON usr.user_id = u.id
+		WHERE usr.school_id = ANY($1) AND u.is_deleted = false AND usr.is_deleted = false
+		GROUP BY usr.school_id
+	`
+
+	var counts []SchoolCounts
+	err := r.db.SelectContext(ctx, &counts, query, pq.Array(schoolIDs))
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[uuid.UUID]SchoolCounts)
+	for _, count := range counts {
+		result[count.SchoolID] = count
+	}
+
+	return result, nil
+}
+
+func (r *repository) GetListSchoolStatistics(ctx context.Context, userID uuid.UUID) (*ListSchoolStatistics, error) {
+	stats := &ListSchoolStatistics{}
+
+	// Get total schools for user
+	err := r.db.GetContext(ctx, &stats.TotalSchools, `
+		SELECT COUNT(school.id) 
+		FROM school 
+	`)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get total students across all schools
+	err = r.db.GetContext(ctx, &stats.TotalStudents, `
+		SELECT COUNT(*) 
+		FROM users u
+		JOIN user_school_role usr ON u.id = usr.user_id
+		WHERE usr.role_id = 'student' 
+		AND u.is_deleted = false AND usr.is_deleted = false
+	`)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get total teachers across all schools
+	err = r.db.GetContext(ctx, &stats.TotalTeachers, `
+		SELECT COUNT(*) 
+		FROM users u
+		JOIN user_school_role usr ON u.id = usr.user_id
+		WHERE usr.role_id = 'teacher' 
+		AND u.is_deleted = false AND usr.is_deleted = false
+	`)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get active schools (schools with recent activity)
+	err = r.db.GetContext(ctx, &stats.ActiveSchools, `
+		SELECT COUNT(school.id) 
+		FROM school 
+		WHERE school.deleted_at = 0
+	`)
+	if err != nil {
+		return nil, err
+	}
+
+	return stats, nil
 }
 
 func (r *repository) GetSchoolRoleByUserIDAndSchoolID(ctx context.Context, userID uuid.UUID, schoolID uuid.UUID) (*UserSchoolRole, error) {
@@ -213,4 +315,73 @@ func (r *repository) UpdateSchoolProfile(ctx context.Context, schoolID uuid.UUID
 	}
 
 	return r.GetSchoolByID(ctx, schoolID)
+}
+
+func (r *repository) GetSchoolStatistics(ctx context.Context, schoolID uuid.UUID) (*SchoolStatistics, error) {
+	stats := &SchoolStatistics{}
+
+	// Get student count
+	err := r.db.GetContext(ctx, &stats.StudentCount, `
+		SELECT COUNT(*) 
+		FROM users u
+		JOIN user_school_role usr ON u.id = usr.user_id
+		WHERE usr.school_id = $1 AND usr.role_id = 'student' AND u.is_deleted = false
+	`, schoolID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get teacher count
+	err = r.db.GetContext(ctx, &stats.TeacherCount, `
+		SELECT COUNT(*) 
+		FROM users u
+		JOIN user_school_role usr ON u.id = usr.user_id
+		WHERE usr.school_id = $1 AND usr.role_id = 'teacher' AND u.is_deleted = false
+	`, schoolID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get class count
+	err = r.db.GetContext(ctx, &stats.ClassCount, `
+		SELECT COUNT(*) 
+		FROM class 
+		WHERE school_id = $1 AND deleted_at  = 0
+	`, schoolID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get subject count
+	err = r.db.GetContext(ctx, &stats.SubjectCount, `
+		SELECT COUNT(*) 
+		FROM subject 
+		WHERE school_id = $1 AND  deleted_at = 0
+	`, schoolID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get exam count
+	err = r.db.GetContext(ctx, &stats.ExamCount, `
+		SELECT COUNT(*) 
+		FROM exam 
+		WHERE school_id = $1 AND deleted_at = 0
+	`, schoolID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get pending students count (students with pending verification)
+	err = r.db.GetContext(ctx, &stats.PendingStudents, `
+		SELECT COUNT(*) 
+		FROM users u
+		JOIN user_school_role usr ON u.id = usr.user_id
+		WHERE usr.school_id = $1 AND usr.role_id = 'student' AND u.is_verified = false AND  u.deleted_at is null
+	`, schoolID)
+	if err != nil {
+		return nil, err
+	}
+
+	return stats, nil
 }

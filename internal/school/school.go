@@ -39,6 +39,7 @@ func (s *School) Init() {
 	v1.POST("", h.CreateSchool)
 	v1.GET("/:school_id", h.GetDetailSchool)
 	v1.GET("", h.ListSchool)
+	v1.GET("/statistic", h.ListSchoolStatistics)
 	v1.DELETE("/:school_id", h.DeleteSchool)
 	v1.GET("/:school_id/switch", h.SwitchSchool)
 	v1.PUT("/:school_id", h.UpdateSchoolProfile)

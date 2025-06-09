@@ -23,6 +23,12 @@ type Repository interface {
 	GetTeacherByID(ctx context.Context, teacherID uuid.UUID) (*User, error)
 	UpdateTeacherClass(ctx context.Context, teacherID, oldClassID, newClassID uuid.UUID) error
 	GetTeacherSubjects(ctx context.Context, teacherID uuid.UUID) ([]Subject, error)
+	GetTeacherClasses(ctx context.Context, teacherID uuid.UUID) ([]Class, error)
+	GetTeacherAssignments(ctx context.Context, teacherIDs []uuid.UUID, schoolID uuid.UUID) (map[uuid.UUID][]Subject, map[uuid.UUID][]Class, error)
+	GetTeacherStatistics(ctx context.Context, schoolID string) (int, int, int, int, error)
+	AssignSubjectsToTeachers(ctx context.Context, teacherSubjects []TeacherSubject) error
+	AssignClassesToTeachers(ctx context.Context, teacherClasses []TeacherClass) error
+	CreateTeachersWithAssignments(ctx context.Context, teachers []User, schoolID uuid.UUID, teacherSubjects []TeacherSubject, teacherClasses []TeacherClass) error
 }
 
 type repository struct {

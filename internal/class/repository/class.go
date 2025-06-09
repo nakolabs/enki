@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"enuma-elish/internal/class/service/data/request"
+	"enuma-elish/pkg/jwt"
 	"fmt"
 	"time"
 
@@ -246,6 +247,13 @@ func (r *repository) AddStudentsToClass(ctx context.Context, classID uuid.UUID, 
 }
 
 func (r *repository) AddTeachersToClass(ctx context.Context, classID uuid.UUID, teacherIDs []uuid.UUID) error {
+
+	jwtClaims, err := jwt.ExtractContext(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to extract JWT claims: %w", err)
+	}
+	createdBy := jwtClaims.User.ID
+
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
@@ -270,6 +278,7 @@ func (r *repository) AddTeachersToClass(ctx context.Context, classID uuid.UUID, 
 			ClassID:   classID,
 			CreatedAt: now,
 			UpdatedAt: 0,
+			CreatedBy: createdBy,
 		})
 	}
 

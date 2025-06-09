@@ -200,6 +200,26 @@ func (h *Handler) GetDetailTeacher(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+func (h *Handler) GetTeacherStatistics(c *gin.Context) {
+	data, err := h.service.GetTeacherStatistics(c.Request.Context())
+	if err != nil {
+		response := commonHttp.NewResponse().
+			SetCode(http.StatusInternalServerError).
+			SetMessage("get teacher statistic error").
+			SetErrors([]error{err})
+
+		c.JSON(response.Code, response)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("get teacher statistic success").
+		SetData(data)
+
+	c.JSON(http.StatusOK, response)
+}
+
 func (h *Handler) UpdateTeacherClass(c *gin.Context) {
 	data := request.UpdateTeacherClassRequest{}
 	err := c.ShouldBindJSON(&data)
@@ -255,6 +275,33 @@ func (h *Handler) GetTeacherSubjects(c *gin.Context) {
 		SetCode(http.StatusOK).
 		SetMessage("get teacher subjects success").
 		SetData(subjects)
+
+	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) GetTeacherClasses(c *gin.Context) {
+	teacherIDStr := c.Param("teacher_id")
+	teacherID, err := uuid.Parse(teacherIDStr)
+	if err != nil {
+		c.Error(err).SetType(gin.ErrorTypeBind)
+		return
+	}
+
+	classes, err := h.service.GetTeacherClasses(c.Request.Context(), teacherID)
+	if err != nil {
+		response := commonHttp.NewResponse().
+			SetCode(http.StatusInternalServerError).
+			SetMessage("get teacher classes error").
+			SetErrors([]error{err})
+
+		c.JSON(response.Code, response)
+		return
+	}
+
+	response := commonHttp.NewResponse().
+		SetCode(http.StatusOK).
+		SetMessage("get teacher classes success").
+		SetData(classes)
 
 	c.JSON(http.StatusOK, response)
 }

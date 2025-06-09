@@ -38,6 +38,7 @@ func (t *Teacher) Init() {
 	v1 := t.Group("/api/v1/teacher").Use(authMiddleware)
 	v1.GET("", h.ListTeachers)
 	v1.GET("/:teacher_id", h.GetDetailTeacher)
+	v1.GET("/statistic", h.GetTeacherStatistics)
 	v1.DELETE("/:teacher_id", h.DeleteTeacher)
 	v1.PUT("/class", h.UpdateTeacherClass)
 
@@ -45,6 +46,6 @@ func (t *Teacher) Init() {
 	v1.POST("/invite/verify", h.VerifyTeacherEmail)
 	v1.POST("/invite/complete", h.UpdateTeacherAfterInvite)
 
-	// Add this line for the new endpoint
 	v1.GET("/:teacher_id/subjects", h.GetTeacherSubjects)
+	v1.GET("/:teacher_id/classes", h.GetTeacherClasses)
 }

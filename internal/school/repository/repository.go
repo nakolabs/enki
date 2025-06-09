@@ -15,6 +15,10 @@ type Repository interface {
 	GetSchoolRoleByUserIDAndSchoolID(ctx context.Context, userID uuid.UUID, schoolID uuid.UUID) (*UserSchoolRole, error)
 	DeleteSchool(ctx context.Context, schoolID uuid.UUID) error
 	UpdateSchoolProfile(ctx context.Context, schoolID uuid.UUID, school School) (*School, error)
+	GetSchoolStatistics(ctx context.Context, schoolID uuid.UUID) (*SchoolStatistics, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (*User, error)
+	GetSchoolCounts(ctx context.Context, schoolIDs []uuid.UUID) (map[uuid.UUID]SchoolCounts, error)
+	GetListSchoolStatistics(ctx context.Context, userID uuid.UUID) (*ListSchoolStatistics, error)
 }
 
 type repository struct {

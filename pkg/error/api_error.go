@@ -27,4 +27,5 @@ var (
 	ErrEmailAlreadyExists    = New("email already exists", 422)
 	ErrInvalidPassword       = New("invalid password", 422)
 	ErrInvalidToken          = New("invalid token", 422)
+	ErrrTeacherAlreadyExists = New("teacher already exists", 422)
 )

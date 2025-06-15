@@ -12,32 +12,40 @@ import (
 )
 
 type Question struct {
-	ID              uuid.UUID `db:"id"`
-	Question        string    `db:"question"`
-	QuestionType    string    `db:"question_type"`
-	Options         *string   `db:"options"`
-	CorrectAnswer   *string   `db:"correct_answer"`
-	SchoolID        uuid.UUID `db:"school_id"`
-	SubjectID       uuid.UUID `db:"subject_id"`
-	DifficultyLevel string    `db:"difficulty_level"`
-	Points          int       `db:"points"`
-	CreatedAt       int64     `db:"created_at"`
-	UpdatedAt       int64     `db:"updated_at"`
+	ID              uuid.UUID      `db:"id"`
+	Question        string         `db:"question"`
+	QuestionType    string         `db:"question_type"`
+	Options         *string        `db:"options"`
+	CorrectAnswer   *string        `db:"correct_answer"`
+	SchoolID        uuid.UUID      `db:"school_id"`
+	SubjectID       uuid.UUID      `db:"subject_id"`
+	DifficultyLevel string         `db:"difficulty_level"`
+	Points          int            `db:"points"`
+	CreatedAt       int64          `db:"created_at"`
+	CreatedBy       uuid.UUID      `db:"created_by"`
+	UpdatedAt       int64          `db:"updated_at"`
+	UpdatedBy       sql.NullString `db:"updated_by"`
+	DeletedAt       int64          `db:"deleted_at"`
+	DeletedBy       sql.NullString `db:"deleted_by"`
 }
 
 type QuestionWithSubject struct {
-	ID              uuid.UUID `db:"id"`
-	Question        string    `db:"question"`
-	QuestionType    string    `db:"question_type"`
-	Options         *string   `db:"options"`
-	CorrectAnswer   *string   `db:"correct_answer"`
-	SchoolID        uuid.UUID `db:"school_id"`
-	SubjectID       uuid.UUID `db:"subject_id"`
-	SubjectName     string    `db:"subject_name"`
-	DifficultyLevel string    `db:"difficulty_level"`
-	Points          int       `db:"points"`
-	CreatedAt       int64     `db:"created_at"`
-	UpdatedAt       int64     `db:"updated_at"`
+	ID              uuid.UUID      `db:"id"`
+	Question        string         `db:"question"`
+	QuestionType    string         `db:"question_type"`
+	Options         *string        `db:"options"`
+	CorrectAnswer   *string        `db:"correct_answer"`
+	SchoolID        uuid.UUID      `db:"school_id"`
+	SubjectID       uuid.UUID      `db:"subject_id"`
+	SubjectName     string         `db:"subject_name"`
+	DifficultyLevel string         `db:"difficulty_level"`
+	Points          int            `db:"points"`
+	CreatedAt       int64          `db:"created_at"`
+	CreatedBy       uuid.UUID      `db:"created_by"`
+	UpdatedAt       int64          `db:"updated_at"`
+	UpdatedBy       sql.NullString `db:"updated_by"`
+	DeletedAt       int64          `db:"deleted_at"`
+	DeletedBy       sql.NullString `db:"deleted_by"`
 }
 
 type Repository interface {
@@ -65,8 +73,8 @@ func New(db *sqlx.DB, rdb *redis.Client) Repository {
 }
 
 func (r *repository) CreateQuestion(ctx context.Context, question Question) error {
-	insertQuery := `INSERT INTO question (id, question, question_type, options, correct_answer, school_id, subject_id, difficulty_level, points, created_at, updated_at) 
-					VALUES (:id, :question, :question_type, :options, :correct_answer, :school_id, :subject_id, :difficulty_level, :points, :created_at, :updated_at)`
+	insertQuery := `INSERT INTO question (id, question, question_type, options, correct_answer, school_id, subject_id, difficulty_level, points, created_at, created_by, updated_at) 
+					VALUES (:id, :question, :question_type, :options, :correct_answer, :school_id, :subject_id, :difficulty_level, :points, :created_at, :created_by, :updated_at)`
 
 	_, err := r.db.NamedExecContext(ctx, insertQuery, question)
 	return err

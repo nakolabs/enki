@@ -42,6 +42,11 @@ func (s *service) CreateQuestion(ctx context.Context, data request.CreateQuestio
 	}
 
 	now := time.Now().UnixMilli()
+	claim, err := jwt.ExtractContext(ctx)
+	if err != nil {
+		log.Err(err).Msg("Failed to extract JWT claim")
+		return err
+	}
 
 	var optionsJSON *string
 	if data.QuestionType == "multiple_choice" && len(data.Options) > 0 {
@@ -64,10 +69,11 @@ func (s *service) CreateQuestion(ctx context.Context, data request.CreateQuestio
 		DifficultyLevel: data.DifficultyLevel,
 		Points:          data.Points,
 		CreatedAt:       now,
+		CreatedBy:       claim.User.ID,
 		UpdatedAt:       0,
 	}
 
-	err := s.repository.CreateQuestion(ctx, question)
+	err = s.repository.CreateQuestion(ctx, question)
 	if err != nil {
 		log.Err(err).Msg("Failed to create question")
 		return err
